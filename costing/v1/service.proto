@@ -1,0 +1,123 @@
+syntax = "proto3";
+
+package costing.v1;
+
+option go_package = "goapps-backend/pb/costing/v1;costingv1";
+
+// UnitOfMeasure represents a unit of measurement for costing
+message UnitOfMeasure {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  string description = 4;
+  string category = 5;
+  string status = 6;
+  string created_at = 7;
+  string updated_at = 8;
+}
+
+// Parameter represents a costing parameter
+message Parameter {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  string value = 4;
+  string data_type = 5;
+  string category = 6;
+  string status = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+// Request/Response messages for UOM operations
+message ListUOMsRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListUOMsResponse {
+  repeated UnitOfMeasure uoms = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message GetUOMRequest {
+  string id = 1;
+}
+
+message CreateUOMRequest {
+  string code = 1;
+  string name = 2;
+  string description = 3;
+  string category = 4;
+}
+
+message UpdateUOMRequest {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  string description = 4;
+  string category = 5;
+  string status = 6;
+}
+
+message DeleteUOMRequest {
+  string id = 1;
+}
+
+// Request/Response messages for Parameter operations
+message ListParametersRequest {
+  int32 page_size = 1;
+  string page_token = 2;
+}
+
+message ListParametersResponse {
+  repeated Parameter parameters = 1;
+  string next_page_token = 2;
+  int32 total_count = 3;
+}
+
+message GetParameterRequest {
+  string id = 1;
+}
+
+message CreateParameterRequest {
+  string code = 1;
+  string name = 2;
+  string value = 3;
+  string data_type = 4;
+  string category = 5;
+}
+
+message UpdateParameterRequest {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  string value = 4;
+  string data_type = 5;
+  string category = 6;
+  string status = 7;
+}
+
+message DeleteParameterRequest {
+  string id = 1;
+}
+
+message Empty {}
+
+// CostingService provides costing-related operations
+service CostingService {
+  // UOM operations
+  rpc ListUOMs(ListUOMsRequest) returns (ListUOMsResponse);
+  rpc GetUOM(GetUOMRequest) returns (UnitOfMeasure);
+  rpc CreateUOM(CreateUOMRequest) returns (UnitOfMeasure);
+  rpc UpdateUOM(UpdateUOMRequest) returns (UnitOfMeasure);
+  rpc DeleteUOM(DeleteUOMRequest) returns (Empty);
+  
+  // Parameter operations
+  rpc ListParameters(ListParametersRequest) returns (ListParametersResponse);
+  rpc GetParameter(GetParameterRequest) returns (Parameter);
+  rpc CreateParameter(CreateParameterRequest) returns (Parameter);
+  rpc UpdateParameter(UpdateParameterRequest) returns (Parameter);
+  rpc DeleteParameter(DeleteParameterRequest) returns (Empty);
+}
