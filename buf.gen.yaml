@@ -1,0 +1,41 @@
+version: v2
+clean: true
+managed:
+  enabled: true
+  disable:
+    - file_option: go_package
+      module: buf.build/bufbuild/protovalidate
+    - file_option: go_package
+      module: buf.build/googleapis/googleapis
+  override:
+    - file_option: go_package_prefix
+      value: github.com/ilramdhan/goapps-backend/gen
+      path: .
+plugins:
+  # Go protobuf structs
+  - remote: buf.build/protocolbuffers/go
+    out: ../goapps-backend/gen
+    opt:
+      - paths=source_relative
+
+  # gRPC service stubs
+  - remote: buf.build/grpc/go
+    out: ../goapps-backend/gen
+    opt:
+      - paths=source_relative
+
+  # gRPC-Gateway for REST API
+  - remote: buf.build/grpc-ecosystem/gateway
+    out: ../goapps-backend/gen
+    opt:
+      - paths=source_relative
+
+  # OpenAPI/Swagger documentation
+  - remote: buf.build/grpc-ecosystem/openapiv2
+    out: ../goapps-backend/gen/openapi
+
+inputs:
+  - directory: .
+    paths:
+      - common
+      - finance

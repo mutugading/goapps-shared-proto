@@ -1,0 +1,15 @@
+version: v2
+modules:
+  - path: .
+    name: buf.build/goapps/shared-proto
+breaking:
+  use:
+    - FILE
+lint:
+  use:
+    - STANDARD
+  except:
+    - PACKAGE_VERSION_SUFFIX
+deps:
+  - buf.build/googleapis/googleapis
+  - buf.build/bufbuild/protovalidate
