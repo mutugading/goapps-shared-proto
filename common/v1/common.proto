@@ -2,7 +2,8 @@ syntax = "proto3";
 
 package common.v1;
 
-option go_package = "github.com/ilramdhan/goapps-backend/gen/common/v1;commonv1";
+// Note: go_package is managed by buf.gen.yaml managed mode
+// option go_package = "github.com/ilramdhan/goapps-backend/gen/common/v1;commonv1";
 
 // BaseResponse is the standard response wrapper for all API responses.
 message BaseResponse {

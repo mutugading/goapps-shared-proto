@@ -5,7 +5,8 @@ config:
 erDiagram
 	direction RL
 	MST_UOM {
-		VARCHAR uom_code PK "KG, MTR, PCS"  
+		UUID uom_id PK "Primary key"  
+		VARCHAR uom_code UK "KG, MTR, PCS (unique)"  
 		VARCHAR uom_name  "Kilogram, Meter"  
 		VARCHAR uom_category  "WEIGHT, LENGTH, QTY"  
 		BOOLEAN is_active  ""  

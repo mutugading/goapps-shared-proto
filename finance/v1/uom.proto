@@ -2,7 +2,8 @@ syntax = "proto3";
 
 package finance.v1;
 
-option go_package = "github.com/ilramdhan/goapps-backend/gen/finance/v1;financev1";
+// Note: go_package is managed by buf.gen.yaml managed mode
+// option go_package = "github.com/ilramdhan/goapps-backend/gen/finance/v1;financev1";
 
 import "buf/validate/validate.proto";
 import "google/api/annotations.proto";
@@ -14,7 +15,7 @@ import "common/v1/common.proto";
 
 // UOMCategory represents the category of a unit of measure.
 enum UOMCategory {
-  // Default unspecified value.
+  // Default unspecified value - used as "no filter" in list/export requests.
   UOM_CATEGORY_UNSPECIFIED = 0;
   // Weight-based units (e.g., KG, GR, TON).
   UOM_CATEGORY_WEIGHT = 1;
@@ -26,6 +27,16 @@ enum UOMCategory {
   UOM_CATEGORY_QUANTITY = 4;
 }
 
+// ActiveFilter represents filter options for is_active field.
+enum ActiveFilter {
+  // Show all records regardless of active status (default).
+  ACTIVE_FILTER_UNSPECIFIED = 0;
+  // Show only active records.
+  ACTIVE_FILTER_ACTIVE = 1;
+  // Show only inactive records.
+  ACTIVE_FILTER_INACTIVE = 2;
+}
+
 // =============================================================================
 // MESSAGES - Entity
 // =============================================================================
@@ -34,7 +45,7 @@ enum UOMCategory {
 message UOM {
   // Unique identifier (UUID).
   string uom_id = 1;
-  // Unique code (e.g., "KG", "MTR", "PCS").
+  // Unique code (e.g., "KG", "MTR", "PCS"). Immutable after creation.
   string uom_code = 2;
   // Display name (e.g., "Kilogram", "Meter", "Pieces").
   string uom_name = 3;
@@ -55,6 +66,7 @@ message UOM {
 // CreateUOMRequest is the request for creating a new UOM.
 message CreateUOMRequest {
   // Unique code (uppercase, alphanumeric with underscore, 1-20 chars).
+  // Must start with an uppercase letter. Immutable after creation.
   string uom_code = 1 [(buf.validate.field).string = {
     min_len: 1,
     max_len: 20,
@@ -104,17 +116,24 @@ message GetUOMResponse {
 // =============================================================================
 
 // UpdateUOMRequest is the request for updating a UOM.
+// Note: uom_code is immutable and cannot be changed after creation.
 message UpdateUOMRequest {
   // UOM ID to update (UUID format).
   string uom_id = 1 [(buf.validate.field).string.uuid = true];
   // New display name (optional, 1-100 chars if provided).
-  string uom_name = 2 [(buf.validate.field).string.max_len = 100];
-  // New category (optional).
-  UOMCategory uom_category = 3;
+  // Empty string means no change.
+  optional string uom_name = 2 [(buf.validate.field).string = {
+    max_len: 100
+  }];
+  // New category (optional, cannot be UNSPECIFIED if provided).
+  // Use has_uom_category to check if this field is set.
+  optional UOMCategory uom_category = 3 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
   // New description (optional, max 500 chars).
-  string description = 4 [(buf.validate.field).string.max_len = 500];
+  optional string description = 4 [(buf.validate.field).string.max_len = 500];
   // New active status (optional).
-  bool is_active = 5;
+  optional bool is_active = 5;
 }
 
 // UpdateUOMResponse is the response for updating a UOM.
@@ -153,10 +172,13 @@ message ListUOMsRequest {
   int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
   // Search query (searches in code, name, description).
   string search = 3 [(buf.validate.field).string.max_len = 100];
-  // Filter by category (optional).
+  // Filter by category.
+  // UOM_CATEGORY_UNSPECIFIED (0) means "show all categories" (no filter).
   UOMCategory category = 4;
-  // Filter by active status (optional).
-  bool is_active = 5;
+  // Filter by active status.
+  // ACTIVE_FILTER_UNSPECIFIED (0) = show all, ACTIVE_FILTER_ACTIVE (1) = only active,
+  // ACTIVE_FILTER_INACTIVE (2) = only inactive.
+  ActiveFilter active_filter = 5;
   // Sort field: "code", "name", "created_at" (default: "code").
   string sort_by = 6 [(buf.validate.field).string = {
     in: ["", "code", "name", "created_at"]
@@ -183,10 +205,13 @@ message ListUOMsResponse {
 
 // ExportUOMsRequest is the request for exporting UOMs to Excel.
 message ExportUOMsRequest {
-  // Filter by category (optional, export all if not specified).
+  // Filter by category.
+  // UOM_CATEGORY_UNSPECIFIED (0) means "export all categories".
   UOMCategory category = 1;
-  // Filter by active status (optional).
-  bool is_active = 2;
+  // Filter by active status.
+  // ACTIVE_FILTER_UNSPECIFIED (0) = export all, ACTIVE_FILTER_ACTIVE (1) = only active,
+  // ACTIVE_FILTER_INACTIVE (2) = only inactive.
+  ActiveFilter active_filter = 2;
 }
 
 // ExportUOMsResponse is the response containing the Excel file.
@@ -211,14 +236,16 @@ message ImportUOMsRequest {
     max_len: 10485760  // 10MB max
   }];
   // Original filename (for format detection).
+  // Must be a simple filename without path separators.
   string file_name = 2 [(buf.validate.field).string = {
     min_len: 1,
     max_len: 255,
-    pattern: ".*\\.(xlsx|xls)$"
+    pattern: "^[^/\\\\]+\\.(xlsx|xls)$"
   }];
-  // How to handle duplicates: "skip", "update", "error".
+  // Required. How to handle duplicates: "skip", "update", "error".
   string duplicate_action = 3 [(buf.validate.field).string = {
-    in: ["skip", "update", "error"]
+    in: ["skip", "update", "error"],
+    min_len: 1
   }];
 }
 
@@ -287,6 +314,7 @@ service UOMService {
   }
 
   // UpdateUOM updates an existing UOM.
+  // Note: uom_code is immutable and cannot be changed.
   rpc UpdateUOM(UpdateUOMRequest) returns (UpdateUOMResponse) {
     option (google.api.http) = {
       put: "/api/v1/finance/uoms/{uom_id}"
