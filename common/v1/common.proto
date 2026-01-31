@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package common.v1;
+
+option go_package = "github.com/ilramdhan/goapps-backend/gen/common/v1;commonv1";
+
+// BaseResponse is the standard response wrapper for all API responses.
+message BaseResponse {
+  // List of validation errors if any.
+  repeated ValidationError validation_errors = 1;
+  // HTTP-like status code (e.g., "200", "400", "404", "500").
+  string status_code = 2;
+  // Indicates if the operation was successful.
+  bool is_success = 3;
+  // Human-readable message describing the result.
+  string message = 4;
+}
+
+// ValidationError represents a single field validation error.
+message ValidationError {
+  // The field name that failed validation.
+  string field = 1;
+  // The validation error message.
+  string message = 2;
+}
+
+// PaginationRequest contains pagination parameters for list requests.
+message PaginationRequest {
+  // Page number (1-indexed).
+  int32 page = 1;
+  // Number of items per page.
+  int32 page_size = 2;
+}
+
+// PaginationResponse contains pagination metadata for list responses.
+message PaginationResponse {
+  // Current page number.
+  int32 current_page = 1;
+  // Number of items per page.
+  int32 page_size = 2;
+  // Total number of items across all pages.
+  int64 total_items = 3;
+  // Total number of pages.
+  int32 total_pages = 4;
+}
+
+// AuditInfo contains audit trail information.
+message AuditInfo {
+  // Timestamp when the record was created (ISO 8601).
+  string created_at = 1;
+  // User who created the record.
+  string created_by = 2;
+  // Timestamp when the record was last updated (ISO 8601).
+  string updated_at = 3;
+  // User who last updated the record.
+  string updated_by = 4;
+}

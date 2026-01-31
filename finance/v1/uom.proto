@@ -1,0 +1,332 @@
+syntax = "proto3";
+
+package finance.v1;
+
+option go_package = "github.com/ilramdhan/goapps-backend/gen/finance/v1;financev1";
+
+import "buf/validate/validate.proto";
+import "google/api/annotations.proto";
+import "common/v1/common.proto";
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+// UOMCategory represents the category of a unit of measure.
+enum UOMCategory {
+  // Default unspecified value.
+  UOM_CATEGORY_UNSPECIFIED = 0;
+  // Weight-based units (e.g., KG, GR, TON).
+  UOM_CATEGORY_WEIGHT = 1;
+  // Length-based units (e.g., MTR, CM, YARD).
+  UOM_CATEGORY_LENGTH = 2;
+  // Volume-based units (e.g., LTR, ML).
+  UOM_CATEGORY_VOLUME = 3;
+  // Quantity-based units (e.g., PCS, BOX, SET).
+  UOM_CATEGORY_QUANTITY = 4;
+}
+
+// =============================================================================
+// MESSAGES - Entity
+// =============================================================================
+
+// UOM represents a Unit of Measure entity.
+message UOM {
+  // Unique identifier (UUID).
+  string uom_id = 1;
+  // Unique code (e.g., "KG", "MTR", "PCS").
+  string uom_code = 2;
+  // Display name (e.g., "Kilogram", "Meter", "Pieces").
+  string uom_name = 3;
+  // Category of the UOM.
+  UOMCategory uom_category = 4;
+  // Optional description.
+  string description = 5;
+  // Whether the UOM is active.
+  bool is_active = 6;
+  // Audit information.
+  common.v1.AuditInfo audit = 7;
+}
+
+// =============================================================================
+// MESSAGES - Create
+// =============================================================================
+
+// CreateUOMRequest is the request for creating a new UOM.
+message CreateUOMRequest {
+  // Unique code (uppercase, alphanumeric with underscore, 1-20 chars).
+  string uom_code = 1 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 20,
+    pattern: "^[A-Z][A-Z0-9_]*$"
+  }];
+  // Display name (1-100 chars).
+  string uom_name = 2 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 100
+  }];
+  // Category (required, cannot be UNSPECIFIED).
+  UOMCategory uom_category = 3 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  // Optional description (max 500 chars).
+  string description = 4 [(buf.validate.field).string.max_len = 500];
+}
+
+// CreateUOMResponse is the response for creating a UOM.
+message CreateUOMResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Created UOM data.
+  UOM data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Get
+// =============================================================================
+
+// GetUOMRequest is the request for getting a UOM by ID.
+message GetUOMRequest {
+  // UOM ID (UUID format).
+  string uom_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// GetUOMResponse is the response for getting a UOM.
+message GetUOMResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // UOM data.
+  UOM data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Update
+// =============================================================================
+
+// UpdateUOMRequest is the request for updating a UOM.
+message UpdateUOMRequest {
+  // UOM ID to update (UUID format).
+  string uom_id = 1 [(buf.validate.field).string.uuid = true];
+  // New display name (optional, 1-100 chars if provided).
+  string uom_name = 2 [(buf.validate.field).string.max_len = 100];
+  // New category (optional).
+  UOMCategory uom_category = 3;
+  // New description (optional, max 500 chars).
+  string description = 4 [(buf.validate.field).string.max_len = 500];
+  // New active status (optional).
+  bool is_active = 5;
+}
+
+// UpdateUOMResponse is the response for updating a UOM.
+message UpdateUOMResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Updated UOM data.
+  UOM data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Delete
+// =============================================================================
+
+// DeleteUOMRequest is the request for deleting (soft delete) a UOM.
+message DeleteUOMRequest {
+  // UOM ID to delete (UUID format).
+  string uom_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// DeleteUOMResponse is the response for deleting a UOM.
+message DeleteUOMResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// =============================================================================
+// MESSAGES - List with Search & Filter
+// =============================================================================
+
+// ListUOMsRequest is the request for listing UOMs with search, filter, and pagination.
+message ListUOMsRequest {
+  // Page number (1-indexed, default 1, min 1).
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  // Items per page (1-100, default 10).
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  // Search query (searches in code, name, description).
+  string search = 3 [(buf.validate.field).string.max_len = 100];
+  // Filter by category (optional).
+  UOMCategory category = 4;
+  // Filter by active status (optional).
+  bool is_active = 5;
+  // Sort field: "code", "name", "created_at" (default: "code").
+  string sort_by = 6 [(buf.validate.field).string = {
+    in: ["", "code", "name", "created_at"]
+  }];
+  // Sort order: "asc", "desc" (default: "asc").
+  string sort_order = 7 [(buf.validate.field).string = {
+    in: ["", "asc", "desc"]
+  }];
+}
+
+// ListUOMsResponse is the response for listing UOMs.
+message ListUOMsResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // List of UOMs.
+  repeated UOM data = 2;
+  // Pagination metadata.
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// =============================================================================
+// MESSAGES - Excel Export
+// =============================================================================
+
+// ExportUOMsRequest is the request for exporting UOMs to Excel.
+message ExportUOMsRequest {
+  // Filter by category (optional, export all if not specified).
+  UOMCategory category = 1;
+  // Filter by active status (optional).
+  bool is_active = 2;
+}
+
+// ExportUOMsResponse is the response containing the Excel file.
+message ExportUOMsResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Excel file content as bytes (.xlsx format).
+  bytes file_content = 2;
+  // Suggested filename.
+  string file_name = 3;
+}
+
+// =============================================================================
+// MESSAGES - Excel Import
+// =============================================================================
+
+// ImportUOMsRequest is the request for importing UOMs from Excel.
+message ImportUOMsRequest {
+  // Excel file content as bytes (.xlsx or .xls format).
+  bytes file_content = 1 [(buf.validate.field).bytes = {
+    min_len: 1,
+    max_len: 10485760  // 10MB max
+  }];
+  // Original filename (for format detection).
+  string file_name = 2 [(buf.validate.field).string = {
+    min_len: 1,
+    max_len: 255,
+    pattern: ".*\\.(xlsx|xls)$"
+  }];
+  // How to handle duplicates: "skip", "update", "error".
+  string duplicate_action = 3 [(buf.validate.field).string = {
+    in: ["skip", "update", "error"]
+  }];
+}
+
+// ImportUOMsResponse is the response for importing UOMs.
+message ImportUOMsResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Number of successfully imported records.
+  int32 success_count = 2;
+  // Number of skipped records (duplicates with skip action).
+  int32 skipped_count = 3;
+  // Number of updated records (duplicates with update action).
+  int32 updated_count = 4;
+  // Number of failed records.
+  int32 failed_count = 5;
+  // Details of failed records.
+  repeated ImportError errors = 6;
+}
+
+// ImportError represents a single import error.
+message ImportError {
+  // Row number in the Excel file.
+  int32 row_number = 1;
+  // Field that caused the error.
+  string field = 2;
+  // Error message.
+  string message = 3;
+}
+
+// =============================================================================
+// MESSAGES - Download Template
+// =============================================================================
+
+// DownloadTemplateRequest is the request for downloading the import template.
+message DownloadTemplateRequest {}
+
+// DownloadTemplateResponse is the response containing the template file.
+message DownloadTemplateResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Excel template file content as bytes (.xlsx format).
+  bytes file_content = 2;
+  // Suggested filename.
+  string file_name = 3;
+}
+
+// =============================================================================
+// SERVICE DEFINITION
+// =============================================================================
+
+// UOMService provides CRUD operations for Unit of Measure master data.
+service UOMService {
+  // CreateUOM creates a new UOM.
+  rpc CreateUOM(CreateUOMRequest) returns (CreateUOMResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/uoms"
+      body: "*"
+    };
+  }
+
+  // GetUOM retrieves a UOM by ID.
+  rpc GetUOM(GetUOMRequest) returns (GetUOMResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/finance/uoms/{uom_id}"
+    };
+  }
+
+  // UpdateUOM updates an existing UOM.
+  rpc UpdateUOM(UpdateUOMRequest) returns (UpdateUOMResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/finance/uoms/{uom_id}"
+      body: "*"
+    };
+  }
+
+  // DeleteUOM soft deletes a UOM.
+  rpc DeleteUOM(DeleteUOMRequest) returns (DeleteUOMResponse) {
+    option (google.api.http) = {
+      delete: "/api/v1/finance/uoms/{uom_id}"
+    };
+  }
+
+  // ListUOMs lists UOMs with search, filter, and pagination.
+  rpc ListUOMs(ListUOMsRequest) returns (ListUOMsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/finance/uoms"
+    };
+  }
+
+  // ExportUOMs exports UOMs to Excel file.
+  rpc ExportUOMs(ExportUOMsRequest) returns (ExportUOMsResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/finance/uoms/export"
+    };
+  }
+
+  // ImportUOMs imports UOMs from Excel file.
+  rpc ImportUOMs(ImportUOMsRequest) returns (ImportUOMsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/uoms/import"
+      body: "*"
+    };
+  }
+
+  // DownloadTemplate downloads the Excel import template.
+  rpc DownloadTemplate(DownloadTemplateRequest) returns (DownloadTemplateResponse) {
+    option (google.api.http) = {
+      get: "/api/v1/finance/uoms/template"
+    };
+  }
+}
