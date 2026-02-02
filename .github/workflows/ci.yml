@@ -45,8 +45,8 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: mutugading/goapps-backend
-          path: ../goapps-backend
-          token: ${{ secrets.GITHUB_TOKEN }}
+          path: goapps-backend
+          token: ${{ secrets.PAT_TOKEN }}
       
       - name: Generate Go code
         run: |
@@ -54,7 +54,7 @@ jobs:
           buf generate
       
       - name: Commit generated code
-        working-directory: ../goapps-backend
+        working-directory: goapps-backend
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
