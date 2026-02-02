@@ -24,7 +24,8 @@ npx proto-loader-gen-types \
   --oneofs \
   --grpcLib=@grpc/grpc-js \
   --outDir="$OUTPUT_DIR" \
-  costing/v1/*.proto
+  finance/v1/*.proto \
+  common/v1/*.proto
 
 echo "✓ TypeScript types generated successfully!"
 echo "Generated files are in: $OUTPUT_DIR"

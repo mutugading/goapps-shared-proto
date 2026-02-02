@@ -28,8 +28,14 @@ buf lint
 echo "⚙️  Generating code..."
 buf generate
 
+# Update Go module dependencies
+echo "📦 Running go mod tidy in gen directory..."
+cd ../goapps-backend/gen
+go mod tidy
+
 echo "✅ Code generation completed successfully!"
 echo ""
 echo "Generated files:"
 echo "  - Go code: ../goapps-backend/gen/"
 echo "  - OpenAPI spec: ../goapps-backend/gen/openapi/api.swagger.json"
+

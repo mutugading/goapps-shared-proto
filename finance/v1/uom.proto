@@ -6,8 +6,8 @@ package finance.v1;
 // option go_package = "github.com/ilramdhan/goapps-backend/gen/finance/v1;financev1";
 
 import "buf/validate/validate.proto";
-import "google/api/annotations.proto";
 import "common/v1/common.proto";
+import "google/api/annotations.proto";
 
 // =============================================================================
 // ENUMS
@@ -68,13 +68,13 @@ message CreateUOMRequest {
   // Unique code (uppercase, alphanumeric with underscore, 1-20 chars).
   // Must start with an uppercase letter. Immutable after creation.
   string uom_code = 1 [(buf.validate.field).string = {
-    min_len: 1,
-    max_len: 20,
+    min_len: 1
+    max_len: 20
     pattern: "^[A-Z][A-Z0-9_]*$"
   }];
   // Display name (1-100 chars).
   string uom_name = 2 [(buf.validate.field).string = {
-    min_len: 1,
+    min_len: 1
     max_len: 100
   }];
   // Category (required, cannot be UNSPECIFIED).
@@ -122,9 +122,7 @@ message UpdateUOMRequest {
   string uom_id = 1 [(buf.validate.field).string.uuid = true];
   // New display name (optional, 1-100 chars if provided).
   // Empty string means no change.
-  optional string uom_name = 2 [(buf.validate.field).string = {
-    max_len: 100
-  }];
+  optional string uom_name = 2 [(buf.validate.field).string = {max_len: 100}];
   // New category (optional, cannot be UNSPECIFIED if provided).
   // Use has_uom_category to check if this field is set.
   optional UOMCategory uom_category = 3 [(buf.validate.field).enum = {
@@ -169,7 +167,10 @@ message ListUOMsRequest {
   // Page number (1-indexed, default 1, min 1).
   int32 page = 1 [(buf.validate.field).int32.gte = 1];
   // Items per page (1-100, default 10).
-  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
   // Search query (searches in code, name, description).
   string search = 3 [(buf.validate.field).string.max_len = 100];
   // Filter by category.
@@ -181,11 +182,20 @@ message ListUOMsRequest {
   ActiveFilter active_filter = 5;
   // Sort field: "code", "name", "created_at" (default: "code").
   string sort_by = 6 [(buf.validate.field).string = {
-    in: ["", "code", "name", "created_at"]
+    in: [
+      "",
+      "code",
+      "name",
+      "created_at"
+    ]
   }];
   // Sort order: "asc", "desc" (default: "asc").
   string sort_order = 7 [(buf.validate.field).string = {
-    in: ["", "asc", "desc"]
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
   }];
 }
 
@@ -232,19 +242,23 @@ message ExportUOMsResponse {
 message ImportUOMsRequest {
   // Excel file content as bytes (.xlsx or .xls format).
   bytes file_content = 1 [(buf.validate.field).bytes = {
-    min_len: 1,
-    max_len: 10485760  // 10MB max
+    min_len: 1
+    max_len: 10485760 // 10MB max
   }];
   // Original filename (for format detection).
   // Must be a simple filename without path separators.
   string file_name = 2 [(buf.validate.field).string = {
-    min_len: 1,
-    max_len: 255,
+    min_len: 1
+    max_len: 255
     pattern: "^[^/\\\\]+\\.(xlsx|xls)$"
   }];
   // Required. How to handle duplicates: "skip", "update", "error".
   string duplicate_action = 3 [(buf.validate.field).string = {
-    in: ["skip", "update", "error"],
+    in: [
+      "skip",
+      "update",
+      "error"
+    ]
     min_len: 1
   }];
 }
@@ -308,9 +322,7 @@ service UOMService {
 
   // GetUOM retrieves a UOM by ID.
   rpc GetUOM(GetUOMRequest) returns (GetUOMResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/finance/uoms/{uom_id}"
-    };
+    option (google.api.http) = {get: "/api/v1/finance/uoms/{uom_id}"};
   }
 
   // UpdateUOM updates an existing UOM.
@@ -324,23 +336,17 @@ service UOMService {
 
   // DeleteUOM soft deletes a UOM.
   rpc DeleteUOM(DeleteUOMRequest) returns (DeleteUOMResponse) {
-    option (google.api.http) = {
-      delete: "/api/v1/finance/uoms/{uom_id}"
-    };
+    option (google.api.http) = {delete: "/api/v1/finance/uoms/{uom_id}"};
   }
 
   // ListUOMs lists UOMs with search, filter, and pagination.
   rpc ListUOMs(ListUOMsRequest) returns (ListUOMsResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/finance/uoms"
-    };
+    option (google.api.http) = {get: "/api/v1/finance/uoms"};
   }
 
   // ExportUOMs exports UOMs to Excel file.
   rpc ExportUOMs(ExportUOMsRequest) returns (ExportUOMsResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/finance/uoms/export"
-    };
+    option (google.api.http) = {get: "/api/v1/finance/uoms/export"};
   }
 
   // ImportUOMs imports UOMs from Excel file.
@@ -353,8 +359,6 @@ service UOMService {
 
   // DownloadTemplate downloads the Excel import template.
   rpc DownloadTemplate(DownloadTemplateRequest) returns (DownloadTemplateResponse) {
-    option (google.api.http) = {
-      get: "/api/v1/finance/uoms/template"
-    };
+    option (google.api.http) = {get: "/api/v1/finance/uoms/template"};
   }
 }

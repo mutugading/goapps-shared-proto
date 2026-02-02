@@ -1,5 +1,5 @@
 version: v2
-clean: true
+# NOTE: Do not use clean: true as it deletes go.mod and go.sum
 managed:
   enabled: true
   disable:
@@ -9,7 +9,7 @@ managed:
       module: buf.build/googleapis/googleapis
   override:
     - file_option: go_package_prefix
-      value: github.com/ilramdhan/goapps-backend/gen
+      value: github.com/mutugading/goapps-backend/gen
       path: .
 plugins:
   # Go protobuf structs
