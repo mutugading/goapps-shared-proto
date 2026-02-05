@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 Documentation
+    url: https://github.com/mutugading/goapps-shared-proto/blob/main/README.md
+    about: Read documentation before creating an issue
+  - name: 📋 Development Rules
+    url: https://github.com/mutugading/goapps-shared-proto/blob/main/RULES.md
+    about: Proto development conventions
+  - name: 📚 Buf Documentation
+    url: https://buf.build/docs
+    about: Official Buf CLI documentation
+  - name: 📖 Protocol Buffers
+    url: https://protobuf.dev/programming-guides/proto3/
+    about: Proto3 language guide
