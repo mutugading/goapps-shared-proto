@@ -1,0 +1,16 @@
+version: v2
+plugins:
+  # TypeScript types with fromJSON/toJSON methods using ts-proto
+  - local: protoc-gen-ts_proto
+    out: ../goapps-frontend/src/types/generated
+    opt:
+      - esModuleInterop=true
+      - outputJsonMethods=true
+      - useExactTypes=false
+      - snakeToCamel=true
+      - outputServices=generic-definitions
+inputs:
+  - directory: .
+    paths:
+      - common
+      - finance
