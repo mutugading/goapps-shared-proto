@@ -1,5 +1,7 @@
 version: v2
 # NOTE: Do not use clean: true as it deletes go.mod and go.sum
+# This config is for Go backend generation only
+# For TypeScript, use buf.gen.ts.yaml
 managed:
   enabled: true
   disable:
@@ -12,6 +14,10 @@ managed:
       value: github.com/mutugading/goapps-backend/gen
       path: .
 plugins:
+  # ===========================================================================
+  # Go Backend Generation
+  # ===========================================================================
+
   # Go protobuf structs
   - remote: buf.build/protocolbuffers/go
     out: ../goapps-backend/gen
