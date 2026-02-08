@@ -45,3 +45,4 @@ inputs:
     paths:
       - common
       - finance
+      - iam

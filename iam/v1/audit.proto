@@ -1,0 +1,210 @@
+syntax = "proto3";
+
+package iam.v1;
+
+// Note: go_package is managed by buf.gen.yaml managed mode
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+// EventType represents the type of audit event.
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+  EVENT_TYPE_LOGIN = 1;
+  EVENT_TYPE_LOGOUT = 2;
+  EVENT_TYPE_LOGIN_FAILED = 3;
+  EVENT_TYPE_PASSWORD_RESET = 4;
+  EVENT_TYPE_PASSWORD_CHANGE = 5;
+  EVENT_TYPE_2FA_ENABLED = 6;
+  EVENT_TYPE_2FA_DISABLED = 7;
+  EVENT_TYPE_CREATE = 8;
+  EVENT_TYPE_UPDATE = 9;
+  EVENT_TYPE_DELETE = 10;
+  EVENT_TYPE_EXPORT = 11;
+  EVENT_TYPE_IMPORT = 12;
+}
+
+// =============================================================================
+// SERVICE DEFINITION
+// =============================================================================
+
+// AuditService provides read-only access to audit logs.
+service AuditService {
+  // GetAuditLog retrieves a single audit log entry.
+  rpc GetAuditLog(GetAuditLogRequest) returns (GetAuditLogResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/audit-logs/{log_id}"};
+  }
+
+  // ListAuditLogs lists audit logs with search, filter, and pagination.
+  rpc ListAuditLogs(ListAuditLogsRequest) returns (ListAuditLogsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/audit-logs"};
+  }
+
+  // ExportAuditLogs exports audit logs to Excel for compliance.
+  rpc ExportAuditLogs(ExportAuditLogsRequest) returns (ExportAuditLogsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/audit-logs/export"};
+  }
+
+  // GetAuditSummary gets audit statistics for dashboard.
+  rpc GetAuditSummary(GetAuditSummaryRequest) returns (GetAuditSummaryResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/audit-logs/summary"};
+  }
+}
+
+// =============================================================================
+// MESSAGES - Audit Log Entity
+// =============================================================================
+
+// AuditLog represents a single audit log entry.
+message AuditLog {
+  string log_id = 1;
+  EventType event_type = 2;
+  // Table name for CRUD events (null for auth events).
+  optional string table_name = 3;
+  // Record ID affected (null for auth events).
+  optional string record_id = 4;
+  // User who performed the action.
+  string user_id = 5;
+  // Username (denormalized for history).
+  string username = 6;
+  // Full name (denormalized).
+  string full_name = 7;
+  // IP address of the request.
+  string ip_address = 8;
+  // User agent string.
+  string user_agent = 9;
+  // Service name (iam, finance, hr, etc.).
+  string service_name = 10;
+  // Previous state (JSON, for UPDATE/DELETE).
+  optional string old_data = 11;
+  // New state (JSON, for CREATE/UPDATE).
+  optional string new_data = 12;
+  // Changed fields only (JSON).
+  optional string changes = 13;
+  // When the action was performed.
+  string performed_at = 14;
+}
+
+// =============================================================================
+// MESSAGES - Get Audit Log
+// =============================================================================
+
+message GetAuditLogRequest {
+  string log_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetAuditLogResponse {
+  common.v1.BaseResponse base = 1;
+  AuditLog data = 2;
+}
+
+// =============================================================================
+// MESSAGES - List Audit Logs
+// =============================================================================
+
+message ListAuditLogsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  // Search in username, full_name, table_name.
+  string search = 3 [(buf.validate.field).string.max_len = 100];
+  // Filter by event type.
+  EventType event_type = 4;
+  // Filter by user ID.
+  optional string user_id = 5 [(buf.validate.field).string.uuid = true];
+  // Filter by table name.
+  string table_name = 6 [(buf.validate.field).string.max_len = 100];
+  // Filter by service name.
+  string service_name = 7 [(buf.validate.field).string.max_len = 50];
+  // Filter by date range (ISO 8601).
+  string date_from = 8;
+  string date_to = 9;
+  string sort_by = 10 [(buf.validate.field).string = {in: ["", "performed_at", "username", "event_type"]}];
+  string sort_order = 11 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+}
+
+message ListAuditLogsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated AuditLog data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// =============================================================================
+// MESSAGES - Export Audit Logs
+// =============================================================================
+
+message ExportAuditLogsRequest {
+  // Filter by event type.
+  EventType event_type = 1;
+  // Filter by user ID.
+  optional string user_id = 2;
+  // Filter by table name.
+  string table_name = 3;
+  // Filter by service name.
+  string service_name = 4;
+  // Filter by date range (ISO 8601).
+  string date_from = 5;
+  string date_to = 6;
+}
+
+message ExportAuditLogsResponse {
+  common.v1.BaseResponse base = 1;
+  bytes file_content = 2;
+  string file_name = 3;
+}
+
+// =============================================================================
+// MESSAGES - Audit Summary
+// =============================================================================
+
+message GetAuditSummaryRequest {
+  // Time range for summary: "today", "week", "month", "year".
+  string time_range = 1 [(buf.validate.field).string = {in: ["today", "week", "month", "year"]}];
+  // Filter by service name (optional).
+  string service_name = 2 [(buf.validate.field).string.max_len = 50];
+}
+
+message GetAuditSummaryResponse {
+  common.v1.BaseResponse base = 1;
+  AuditSummary data = 2;
+}
+
+// AuditSummary contains audit statistics.
+message AuditSummary {
+  // Total events in time range.
+  int64 total_events = 1;
+  // Login counts.
+  int64 login_count = 2;
+  int64 login_failed_count = 3;
+  int64 logout_count = 4;
+  // CRUD counts.
+  int64 create_count = 5;
+  int64 update_count = 6;
+  int64 delete_count = 7;
+  // Export/Import counts.
+  int64 export_count = 8;
+  int64 import_count = 9;
+  // Most active users.
+  repeated UserActivityInfo top_users = 10;
+  // Events by hour (for chart).
+  repeated HourlyCount events_by_hour = 11;
+}
+
+// UserActivityInfo represents user activity count.
+message UserActivityInfo {
+  string user_id = 1;
+  string username = 2;
+  string full_name = 3;
+  int64 event_count = 4;
+}
+
+// HourlyCount represents event count by hour.
+message HourlyCount {
+  // Hour in 0-23 format.
+  int32 hour = 1;
+  int64 count = 2;
+}

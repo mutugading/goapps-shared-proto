@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package iam.v1;
+
+// Note: go_package is managed by buf.gen.yaml managed mode
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// SERVICE DEFINITION
+// =============================================================================
+
+// SessionService handles session management.
+service SessionService {
+  // GetCurrentSession returns the current active session info.
+  rpc GetCurrentSession(GetCurrentSessionRequest) returns (GetCurrentSessionResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/sessions/current"};
+  }
+
+  // RevokeSession force logs out the user (admin can revoke others).
+  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/sessions/{session_id}/revoke"
+      body: "*"
+    };
+  }
+
+  // ListActiveSessions lists all currently active sessions (admin only).
+  rpc ListActiveSessions(ListActiveSessionsRequest) returns (ListActiveSessionsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/sessions"};
+  }
+}
+
+// =============================================================================
+// MESSAGES - Session Entity
+// =============================================================================
+
+// Session represents an active user session.
+message Session {
+  string session_id = 1;
+  string user_id = 2;
+  string username = 3;
+  string full_name = 4;
+  string device_info = 5;
+  string ip_address = 6;
+  string service_name = 7;
+  string created_at = 8;
+  string expires_at = 9;
+  optional string revoked_at = 10;
+}
+
+// =============================================================================
+// MESSAGES - Get Current Session
+// =============================================================================
+
+message GetCurrentSessionRequest {}
+
+message GetCurrentSessionResponse {
+  common.v1.BaseResponse base = 1;
+  Session data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Revoke Session
+// =============================================================================
+
+message RevokeSessionRequest {
+  string session_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message RevokeSessionResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+// =============================================================================
+// MESSAGES - List Active Sessions
+// =============================================================================
+
+message ListActiveSessionsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  string search = 3 [(buf.validate.field).string.max_len = 100];
+  // Filter by service name.
+  string service_name = 4 [(buf.validate.field).string.max_len = 50];
+  // Filter by user ID.
+  optional string user_id = 5 [(buf.validate.field).string.uuid = true];
+  string sort_by = 6 [(buf.validate.field).string = {in: ["", "username", "created_at", "expires_at"]}];
+  string sort_order = 7 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+}
+
+message ListActiveSessionsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Session data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}

@@ -1,0 +1,414 @@
+syntax = "proto3";
+
+package iam.v1;
+
+// Note: go_package is managed by buf.gen.yaml managed mode
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+import "iam/v1/user.proto";
+
+// =============================================================================
+// SERVICE DEFINITIONS
+// =============================================================================
+
+// RoleService provides CRUD operations for role management.
+service RoleService {
+  rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/roles"
+      body: "*"
+    };
+  }
+  rpc GetRole(GetRoleRequest) returns (GetRoleResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/roles/{role_id}"};
+  }
+  rpc UpdateRole(UpdateRoleRequest) returns (UpdateRoleResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/iam/roles/{role_id}"
+      body: "*"
+    };
+  }
+  rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse) {
+    option (google.api.http) = {delete: "/api/v1/iam/roles/{role_id}"};
+  }
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/roles"};
+  }
+  rpc ExportRoles(ExportRolesRequest) returns (ExportRolesResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/roles/export"};
+  }
+  rpc ImportRoles(ImportRolesRequest) returns (ImportRolesResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/roles/import"
+      body: "*"
+    };
+  }
+  rpc DownloadRoleTemplate(DownloadRoleTemplateRequest) returns (DownloadRoleTemplateResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/roles/template"};
+  }
+
+  // Role-Permission assignment
+  rpc AssignRolePermissions(AssignRolePermissionsRequest) returns (AssignRolePermissionsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/roles/{role_id}/permissions"
+      body: "*"
+    };
+  }
+  rpc RemoveRolePermissions(RemoveRolePermissionsRequest) returns (RemoveRolePermissionsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/roles/{role_id}/permissions/remove"
+      body: "*"
+    };
+  }
+  rpc GetRolePermissions(GetRolePermissionsRequest) returns (GetRolePermissionsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/roles/{role_id}/permissions"};
+  }
+}
+
+// PermissionService provides CRUD operations for permission management.
+service PermissionService {
+  rpc CreatePermission(CreatePermissionRequest) returns (CreatePermissionResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/permissions"
+      body: "*"
+    };
+  }
+  rpc GetPermission(GetPermissionRequest) returns (GetPermissionResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/permissions/{permission_id}"};
+  }
+  rpc UpdatePermission(UpdatePermissionRequest) returns (UpdatePermissionResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/iam/permissions/{permission_id}"
+      body: "*"
+    };
+  }
+  rpc DeletePermission(DeletePermissionRequest) returns (DeletePermissionResponse) {
+    option (google.api.http) = {delete: "/api/v1/iam/permissions/{permission_id}"};
+  }
+  rpc ListPermissions(ListPermissionsRequest) returns (ListPermissionsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/permissions"};
+  }
+  rpc ExportPermissions(ExportPermissionsRequest) returns (ExportPermissionsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/permissions/export"};
+  }
+  rpc ImportPermissions(ImportPermissionsRequest) returns (ImportPermissionsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/permissions/import"
+      body: "*"
+    };
+  }
+  rpc DownloadPermissionTemplate(DownloadPermissionTemplateRequest) returns (DownloadPermissionTemplateResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/permissions/template"};
+  }
+
+  // Get permissions grouped by service/module
+  rpc GetPermissionsByService(GetPermissionsByServiceRequest) returns (GetPermissionsByServiceResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/permissions/by-service"};
+  }
+}
+
+// =============================================================================
+// MESSAGES - Role Entity
+// =============================================================================
+
+message Role {
+  string role_id = 1;
+  string role_code = 2;
+  string role_name = 3;
+  string description = 4;
+  bool is_system = 5;  // System roles cannot be deleted
+  bool is_active = 6;
+  int32 user_count = 7;  // Number of users with this role
+  common.v1.AuditInfo audit = 8;
+}
+
+// =============================================================================
+// MESSAGES - Role CRUD
+// =============================================================================
+
+message CreateRoleRequest {
+  string role_code = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 50
+    pattern: "^[A-Z][A-Z0-9_]*$"
+  }];
+  string role_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+  string description = 3 [(buf.validate.field).string.max_len = 500];
+  // Initial permission IDs to assign
+  repeated string permission_ids = 4;
+}
+
+message CreateRoleResponse {
+  common.v1.BaseResponse base = 1;
+  Role data = 2;
+}
+
+message GetRoleRequest {
+  string role_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetRoleResponse {
+  common.v1.BaseResponse base = 1;
+  Role data = 2;
+}
+
+message UpdateRoleRequest {
+  string role_id = 1 [(buf.validate.field).string.uuid = true];
+  optional string role_name = 2 [(buf.validate.field).string.max_len = 100];
+  optional string description = 3 [(buf.validate.field).string.max_len = 500];
+  optional bool is_active = 4;
+}
+
+message UpdateRoleResponse {
+  common.v1.BaseResponse base = 1;
+  Role data = 2;
+}
+
+message DeleteRoleRequest {
+  string role_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message DeleteRoleResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message ListRolesRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  string search = 3 [(buf.validate.field).string.max_len = 100];
+  ActiveFilter active_filter = 4;
+  // Filter by is_system flag
+  optional bool is_system = 5;
+  string sort_by = 6 [(buf.validate.field).string = {in: ["", "code", "name", "created_at", "user_count"]}];
+  string sort_order = 7 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+}
+
+message ListRolesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Role data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+message ExportRolesRequest {
+  ActiveFilter active_filter = 1;
+  optional bool is_system = 2;
+}
+
+message ExportRolesResponse {
+  common.v1.BaseResponse base = 1;
+  bytes file_content = 2;
+  string file_name = 3;
+}
+
+message ImportRolesRequest {
+  bytes file_content = 1 [(buf.validate.field).bytes = {min_len: 1, max_len: 10485760}];
+  string file_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 255}];
+  string duplicate_action = 3 [(buf.validate.field).string = {in: ["skip", "update", "error"], min_len: 1}];
+}
+
+message ImportRolesResponse {
+  common.v1.BaseResponse base = 1;
+  int32 success_count = 2;
+  int32 skipped_count = 3;
+  int32 updated_count = 4;
+  int32 failed_count = 5;
+  repeated ImportError errors = 6;
+}
+
+message DownloadRoleTemplateRequest {}
+message DownloadRoleTemplateResponse {
+  common.v1.BaseResponse base = 1;
+  bytes file_content = 2;
+  string file_name = 3;
+}
+
+// =============================================================================
+// MESSAGES - Role-Permission Assignment
+// =============================================================================
+
+message AssignRolePermissionsRequest {
+  string role_id = 1 [(buf.validate.field).string.uuid = true];
+  repeated string permission_ids = 2 [(buf.validate.field).repeated.min_items = 1];
+}
+
+message AssignRolePermissionsResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message RemoveRolePermissionsRequest {
+  string role_id = 1 [(buf.validate.field).string.uuid = true];
+  repeated string permission_ids = 2 [(buf.validate.field).repeated.min_items = 1];
+}
+
+message RemoveRolePermissionsResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message GetRolePermissionsRequest {
+  string role_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetRolePermissionsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Permission data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Permission Entity (defined in user.proto, extended here)
+// =============================================================================
+
+message PermissionDetail {
+  string permission_id = 1;
+  string permission_code = 2;
+  string permission_name = 3;
+  string description = 4;
+  string service_name = 5;
+  string module_name = 6;
+  string action_type = 7;  // view, create, update, delete, export, import
+  bool is_active = 8;
+  int32 role_count = 9;  // Number of roles with this permission
+  common.v1.AuditInfo audit = 10;
+}
+
+// =============================================================================
+// MESSAGES - Permission CRUD
+// =============================================================================
+
+message CreatePermissionRequest {
+  // Permission code format: {service}.{module}.{entity}.{action}
+  // e.g., finance.master.uom.view, iam.user.create
+  string permission_code = 1 [(buf.validate.field).string = {
+    min_len: 3
+    max_len: 100
+    pattern: "^[a-z][a-z0-9]*\\.[a-z][a-z0-9]*\\.[a-z][a-z0-9]*\\.[a-z]+$"
+  }];
+  string permission_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+  string description = 3 [(buf.validate.field).string.max_len = 500];
+  string service_name = 4 [(buf.validate.field).string = {min_len: 1, max_len: 50}];
+  string module_name = 5 [(buf.validate.field).string = {min_len: 1, max_len: 50}];
+  // Action type: view, create, update, delete, export, import
+  string action_type = 6 [(buf.validate.field).string = {
+    in: ["view", "create", "update", "delete", "export", "import"]
+  }];
+}
+
+message CreatePermissionResponse {
+  common.v1.BaseResponse base = 1;
+  PermissionDetail data = 2;
+}
+
+message GetPermissionRequest {
+  string permission_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetPermissionResponse {
+  common.v1.BaseResponse base = 1;
+  PermissionDetail data = 2;
+}
+
+message UpdatePermissionRequest {
+  string permission_id = 1 [(buf.validate.field).string.uuid = true];
+  optional string permission_name = 2 [(buf.validate.field).string.max_len = 100];
+  optional string description = 3 [(buf.validate.field).string.max_len = 500];
+  optional bool is_active = 4;
+}
+
+message UpdatePermissionResponse {
+  common.v1.BaseResponse base = 1;
+  PermissionDetail data = 2;
+}
+
+message DeletePermissionRequest {
+  string permission_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message DeletePermissionResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message ListPermissionsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  string search = 3 [(buf.validate.field).string.max_len = 100];
+  ActiveFilter active_filter = 4;
+  // Filter by service
+  string service_name = 5 [(buf.validate.field).string.max_len = 50];
+  // Filter by module
+  string module_name = 6 [(buf.validate.field).string.max_len = 50];
+  // Filter by action type
+  string action_type = 7 [(buf.validate.field).string = {
+    in: ["", "view", "create", "update", "delete", "export", "import"]
+  }];
+  string sort_by = 8 [(buf.validate.field).string = {in: ["", "code", "name", "service_name", "created_at"]}];
+  string sort_order = 9 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+}
+
+message ListPermissionsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated PermissionDetail data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+message ExportPermissionsRequest {
+  ActiveFilter active_filter = 1;
+  string service_name = 2;
+  string module_name = 3;
+}
+
+message ExportPermissionsResponse {
+  common.v1.BaseResponse base = 1;
+  bytes file_content = 2;
+  string file_name = 3;
+}
+
+message ImportPermissionsRequest {
+  bytes file_content = 1 [(buf.validate.field).bytes = {min_len: 1, max_len: 10485760}];
+  string file_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 255}];
+  string duplicate_action = 3 [(buf.validate.field).string = {in: ["skip", "update", "error"], min_len: 1}];
+}
+
+message ImportPermissionsResponse {
+  common.v1.BaseResponse base = 1;
+  int32 success_count = 2;
+  int32 skipped_count = 3;
+  int32 updated_count = 4;
+  int32 failed_count = 5;
+  repeated ImportError errors = 6;
+}
+
+message DownloadPermissionTemplateRequest {}
+message DownloadPermissionTemplateResponse {
+  common.v1.BaseResponse base = 1;
+  bytes file_content = 2;
+  string file_name = 3;
+}
+
+// =============================================================================
+// MESSAGES - Permissions by Service
+// =============================================================================
+
+message GetPermissionsByServiceRequest {
+  // Filter by specific service (optional, returns all if empty)
+  string service_name = 1 [(buf.validate.field).string.max_len = 50];
+  // Include inactive permissions
+  bool include_inactive = 2;
+}
+
+message GetPermissionsByServiceResponse {
+  common.v1.BaseResponse base = 1;
+  repeated ServicePermissions data = 2;
+}
+
+// ServicePermissions groups permissions by service and module.
+message ServicePermissions {
+  string service_name = 1;
+  repeated ModulePermissions modules = 2;
+}
+
+// ModulePermissions groups permissions within a module.
+message ModulePermissions {
+  string module_name = 1;
+  repeated PermissionDetail permissions = 2;
+}

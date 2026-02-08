@@ -1,0 +1,655 @@
+syntax = "proto3";
+
+package iam.v1;
+
+// Note: go_package is managed by buf.gen.yaml managed mode
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+import "iam/v1/user.proto";
+
+// =============================================================================
+// SERVICE DEFINITIONS
+// =============================================================================
+
+// CompanyService provides CRUD operations for company master data.
+service CompanyService {
+  rpc CreateCompany(CreateCompanyRequest) returns (CreateCompanyResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/companies"
+      body: "*"
+    };
+  }
+  rpc GetCompany(GetCompanyRequest) returns (GetCompanyResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/companies/{company_id}"};
+  }
+  rpc UpdateCompany(UpdateCompanyRequest) returns (UpdateCompanyResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/iam/companies/{company_id}"
+      body: "*"
+    };
+  }
+  rpc DeleteCompany(DeleteCompanyRequest) returns (DeleteCompanyResponse) {
+    option (google.api.http) = {delete: "/api/v1/iam/companies/{company_id}"};
+  }
+  rpc ListCompanies(ListCompaniesRequest) returns (ListCompaniesResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/companies"};
+  }
+  rpc ExportCompanies(ExportCompaniesRequest) returns (ExportCompaniesResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/companies/export"};
+  }
+  rpc ImportCompanies(ImportCompaniesRequest) returns (ImportCompaniesResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/companies/import"
+      body: "*"
+    };
+  }
+  rpc DownloadCompanyTemplate(DownloadCompanyTemplateRequest) returns (DownloadCompanyTemplateResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/companies/template"};
+  }
+}
+
+// DivisionService provides CRUD operations for division master data.
+service DivisionService {
+  rpc CreateDivision(CreateDivisionRequest) returns (CreateDivisionResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/divisions"
+      body: "*"
+    };
+  }
+  rpc GetDivision(GetDivisionRequest) returns (GetDivisionResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/divisions/{division_id}"};
+  }
+  rpc UpdateDivision(UpdateDivisionRequest) returns (UpdateDivisionResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/iam/divisions/{division_id}"
+      body: "*"
+    };
+  }
+  rpc DeleteDivision(DeleteDivisionRequest) returns (DeleteDivisionResponse) {
+    option (google.api.http) = {delete: "/api/v1/iam/divisions/{division_id}"};
+  }
+  rpc ListDivisions(ListDivisionsRequest) returns (ListDivisionsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/divisions"};
+  }
+  rpc ExportDivisions(ExportDivisionsRequest) returns (ExportDivisionsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/divisions/export"};
+  }
+  rpc ImportDivisions(ImportDivisionsRequest) returns (ImportDivisionsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/divisions/import"
+      body: "*"
+    };
+  }
+  rpc DownloadDivisionTemplate(DownloadDivisionTemplateRequest) returns (DownloadDivisionTemplateResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/divisions/template"};
+  }
+}
+
+// DepartmentService provides CRUD operations for department master data.
+service DepartmentService {
+  rpc CreateDepartment(CreateDepartmentRequest) returns (CreateDepartmentResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/departments"
+      body: "*"
+    };
+  }
+  rpc GetDepartment(GetDepartmentRequest) returns (GetDepartmentResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/departments/{department_id}"};
+  }
+  rpc UpdateDepartment(UpdateDepartmentRequest) returns (UpdateDepartmentResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/iam/departments/{department_id}"
+      body: "*"
+    };
+  }
+  rpc DeleteDepartment(DeleteDepartmentRequest) returns (DeleteDepartmentResponse) {
+    option (google.api.http) = {delete: "/api/v1/iam/departments/{department_id}"};
+  }
+  rpc ListDepartments(ListDepartmentsRequest) returns (ListDepartmentsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/departments"};
+  }
+  rpc ExportDepartments(ExportDepartmentsRequest) returns (ExportDepartmentsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/departments/export"};
+  }
+  rpc ImportDepartments(ImportDepartmentsRequest) returns (ImportDepartmentsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/departments/import"
+      body: "*"
+    };
+  }
+  rpc DownloadDepartmentTemplate(DownloadDepartmentTemplateRequest) returns (DownloadDepartmentTemplateResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/departments/template"};
+  }
+}
+
+// SectionService provides CRUD operations for section master data.
+service SectionService {
+  rpc CreateSection(CreateSectionRequest) returns (CreateSectionResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/sections"
+      body: "*"
+    };
+  }
+  rpc GetSection(GetSectionRequest) returns (GetSectionResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/sections/{section_id}"};
+  }
+  rpc UpdateSection(UpdateSectionRequest) returns (UpdateSectionResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/iam/sections/{section_id}"
+      body: "*"
+    };
+  }
+  rpc DeleteSection(DeleteSectionRequest) returns (DeleteSectionResponse) {
+    option (google.api.http) = {delete: "/api/v1/iam/sections/{section_id}"};
+  }
+  rpc ListSections(ListSectionsRequest) returns (ListSectionsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/sections"};
+  }
+  rpc ExportSections(ExportSectionsRequest) returns (ExportSectionsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/sections/export"};
+  }
+  rpc ImportSections(ImportSectionsRequest) returns (ImportSectionsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/sections/import"
+      body: "*"
+    };
+  }
+  rpc DownloadSectionTemplate(DownloadSectionTemplateRequest) returns (DownloadSectionTemplateResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/sections/template"};
+  }
+}
+
+// OrganizationService provides hierarchy view.
+service OrganizationService {
+  // GetOrganizationTree returns the full organization hierarchy.
+  rpc GetOrganizationTree(GetOrganizationTreeRequest) returns (GetOrganizationTreeResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/organization/tree"};
+  }
+}
+
+// =============================================================================
+// MESSAGES - Company Entity
+// =============================================================================
+
+message Company {
+  string company_id = 1;
+  string company_code = 2;
+  string company_name = 3;
+  string description = 4;
+  bool is_active = 5;
+  common.v1.AuditInfo audit = 6;
+}
+
+// =============================================================================
+// MESSAGES - Company CRUD
+// =============================================================================
+
+message CreateCompanyRequest {
+  string company_code = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 20
+    pattern: "^[A-Z][A-Z0-9_]*$"
+  }];
+  string company_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+  string description = 3 [(buf.validate.field).string.max_len = 500];
+}
+
+message CreateCompanyResponse {
+  common.v1.BaseResponse base = 1;
+  Company data = 2;
+}
+
+message GetCompanyRequest {
+  string company_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetCompanyResponse {
+  common.v1.BaseResponse base = 1;
+  Company data = 2;
+}
+
+message UpdateCompanyRequest {
+  string company_id = 1 [(buf.validate.field).string.uuid = true];
+  optional string company_name = 2 [(buf.validate.field).string.max_len = 100];
+  optional string description = 3 [(buf.validate.field).string.max_len = 500];
+  optional bool is_active = 4;
+}
+
+message UpdateCompanyResponse {
+  common.v1.BaseResponse base = 1;
+  Company data = 2;
+}
+
+message DeleteCompanyRequest {
+  string company_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message DeleteCompanyResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message ListCompaniesRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  string search = 3 [(buf.validate.field).string.max_len = 100];
+  ActiveFilter active_filter = 4;
+  string sort_by = 5 [(buf.validate.field).string = {in: ["", "code", "name", "created_at"]}];
+  string sort_order = 6 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+}
+
+message ListCompaniesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Company data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+message ExportCompaniesRequest {
+  ActiveFilter active_filter = 1;
+}
+
+message ExportCompaniesResponse {
+  common.v1.BaseResponse base = 1;
+  bytes file_content = 2;
+  string file_name = 3;
+}
+
+message ImportCompaniesRequest {
+  bytes file_content = 1 [(buf.validate.field).bytes = {min_len: 1, max_len: 10485760}];
+  string file_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 255}];
+  string duplicate_action = 3 [(buf.validate.field).string = {in: ["skip", "update", "error"], min_len: 1}];
+}
+
+message ImportCompaniesResponse {
+  common.v1.BaseResponse base = 1;
+  int32 success_count = 2;
+  int32 skipped_count = 3;
+  int32 updated_count = 4;
+  int32 failed_count = 5;
+  repeated ImportError errors = 6;
+}
+
+message DownloadCompanyTemplateRequest {}
+message DownloadCompanyTemplateResponse {
+  common.v1.BaseResponse base = 1;
+  bytes file_content = 2;
+  string file_name = 3;
+}
+
+// =============================================================================
+// MESSAGES - Division Entity
+// =============================================================================
+
+message Division {
+  string division_id = 1;
+  string company_id = 2;
+  Company company = 3;
+  string division_code = 4;
+  string division_name = 5;
+  string description = 6;
+  bool is_active = 7;
+  common.v1.AuditInfo audit = 8;
+}
+
+// =============================================================================
+// MESSAGES - Division CRUD
+// =============================================================================
+
+message CreateDivisionRequest {
+  string company_id = 1 [(buf.validate.field).string.uuid = true];
+  string division_code = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 20
+    pattern: "^[A-Z][A-Z0-9_]*$"
+  }];
+  string division_name = 3 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+  string description = 4 [(buf.validate.field).string.max_len = 500];
+}
+
+message CreateDivisionResponse {
+  common.v1.BaseResponse base = 1;
+  Division data = 2;
+}
+
+message GetDivisionRequest {
+  string division_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetDivisionResponse {
+  common.v1.BaseResponse base = 1;
+  Division data = 2;
+}
+
+message UpdateDivisionRequest {
+  string division_id = 1 [(buf.validate.field).string.uuid = true];
+  optional string company_id = 2 [(buf.validate.field).string.uuid = true];
+  optional string division_name = 3 [(buf.validate.field).string.max_len = 100];
+  optional string description = 4 [(buf.validate.field).string.max_len = 500];
+  optional bool is_active = 5;
+}
+
+message UpdateDivisionResponse {
+  common.v1.BaseResponse base = 1;
+  Division data = 2;
+}
+
+message DeleteDivisionRequest {
+  string division_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message DeleteDivisionResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message ListDivisionsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  string search = 3 [(buf.validate.field).string.max_len = 100];
+  ActiveFilter active_filter = 4;
+  optional string company_id = 5 [(buf.validate.field).string.uuid = true];
+  string sort_by = 6 [(buf.validate.field).string = {in: ["", "code", "name", "created_at"]}];
+  string sort_order = 7 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+}
+
+message ListDivisionsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Division data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+message ExportDivisionsRequest {
+  ActiveFilter active_filter = 1;
+  optional string company_id = 2;
+}
+
+message ExportDivisionsResponse {
+  common.v1.BaseResponse base = 1;
+  bytes file_content = 2;
+  string file_name = 3;
+}
+
+message ImportDivisionsRequest {
+  bytes file_content = 1 [(buf.validate.field).bytes = {min_len: 1, max_len: 10485760}];
+  string file_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 255}];
+  string duplicate_action = 3 [(buf.validate.field).string = {in: ["skip", "update", "error"], min_len: 1}];
+}
+
+message ImportDivisionsResponse {
+  common.v1.BaseResponse base = 1;
+  int32 success_count = 2;
+  int32 skipped_count = 3;
+  int32 updated_count = 4;
+  int32 failed_count = 5;
+  repeated ImportError errors = 6;
+}
+
+message DownloadDivisionTemplateRequest {}
+message DownloadDivisionTemplateResponse {
+  common.v1.BaseResponse base = 1;
+  bytes file_content = 2;
+  string file_name = 3;
+}
+
+// =============================================================================
+// MESSAGES - Department Entity
+// =============================================================================
+
+message Department {
+  string department_id = 1;
+  string division_id = 2;
+  Division division = 3;
+  string department_code = 4;
+  string department_name = 5;
+  string description = 6;
+  bool is_active = 7;
+  common.v1.AuditInfo audit = 8;
+}
+
+// =============================================================================
+// MESSAGES - Department CRUD
+// =============================================================================
+
+message CreateDepartmentRequest {
+  string division_id = 1 [(buf.validate.field).string.uuid = true];
+  string department_code = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 20
+    pattern: "^[A-Z][A-Z0-9_]*$"
+  }];
+  string department_name = 3 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+  string description = 4 [(buf.validate.field).string.max_len = 500];
+}
+
+message CreateDepartmentResponse {
+  common.v1.BaseResponse base = 1;
+  Department data = 2;
+}
+
+message GetDepartmentRequest {
+  string department_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetDepartmentResponse {
+  common.v1.BaseResponse base = 1;
+  Department data = 2;
+}
+
+message UpdateDepartmentRequest {
+  string department_id = 1 [(buf.validate.field).string.uuid = true];
+  optional string division_id = 2 [(buf.validate.field).string.uuid = true];
+  optional string department_name = 3 [(buf.validate.field).string.max_len = 100];
+  optional string description = 4 [(buf.validate.field).string.max_len = 500];
+  optional bool is_active = 5;
+}
+
+message UpdateDepartmentResponse {
+  common.v1.BaseResponse base = 1;
+  Department data = 2;
+}
+
+message DeleteDepartmentRequest {
+  string department_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message DeleteDepartmentResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message ListDepartmentsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  string search = 3 [(buf.validate.field).string.max_len = 100];
+  ActiveFilter active_filter = 4;
+  optional string division_id = 5 [(buf.validate.field).string.uuid = true];
+  optional string company_id = 6 [(buf.validate.field).string.uuid = true];
+  string sort_by = 7 [(buf.validate.field).string = {in: ["", "code", "name", "created_at"]}];
+  string sort_order = 8 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+}
+
+message ListDepartmentsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Department data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+message ExportDepartmentsRequest {
+  ActiveFilter active_filter = 1;
+  optional string division_id = 2;
+  optional string company_id = 3;
+}
+
+message ExportDepartmentsResponse {
+  common.v1.BaseResponse base = 1;
+  bytes file_content = 2;
+  string file_name = 3;
+}
+
+message ImportDepartmentsRequest {
+  bytes file_content = 1 [(buf.validate.field).bytes = {min_len: 1, max_len: 10485760}];
+  string file_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 255}];
+  string duplicate_action = 3 [(buf.validate.field).string = {in: ["skip", "update", "error"], min_len: 1}];
+}
+
+message ImportDepartmentsResponse {
+  common.v1.BaseResponse base = 1;
+  int32 success_count = 2;
+  int32 skipped_count = 3;
+  int32 updated_count = 4;
+  int32 failed_count = 5;
+  repeated ImportError errors = 6;
+}
+
+message DownloadDepartmentTemplateRequest {}
+message DownloadDepartmentTemplateResponse {
+  common.v1.BaseResponse base = 1;
+  bytes file_content = 2;
+  string file_name = 3;
+}
+
+// =============================================================================
+// MESSAGES - Section Entity
+// =============================================================================
+
+message Section {
+  string section_id = 1;
+  string department_id = 2;
+  Department department = 3;
+  string section_code = 4;
+  string section_name = 5;
+  string description = 6;
+  bool is_active = 7;
+  common.v1.AuditInfo audit = 8;
+}
+
+// =============================================================================
+// MESSAGES - Section CRUD
+// =============================================================================
+
+message CreateSectionRequest {
+  string department_id = 1 [(buf.validate.field).string.uuid = true];
+  string section_code = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 20
+    pattern: "^[A-Z][A-Z0-9_]*$"
+  }];
+  string section_name = 3 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+  string description = 4 [(buf.validate.field).string.max_len = 500];
+}
+
+message CreateSectionResponse {
+  common.v1.BaseResponse base = 1;
+  Section data = 2;
+}
+
+message GetSectionRequest {
+  string section_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetSectionResponse {
+  common.v1.BaseResponse base = 1;
+  Section data = 2;
+}
+
+message UpdateSectionRequest {
+  string section_id = 1 [(buf.validate.field).string.uuid = true];
+  optional string department_id = 2 [(buf.validate.field).string.uuid = true];
+  optional string section_name = 3 [(buf.validate.field).string.max_len = 100];
+  optional string description = 4 [(buf.validate.field).string.max_len = 500];
+  optional bool is_active = 5;
+}
+
+message UpdateSectionResponse {
+  common.v1.BaseResponse base = 1;
+  Section data = 2;
+}
+
+message DeleteSectionRequest {
+  string section_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message DeleteSectionResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message ListSectionsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  string search = 3 [(buf.validate.field).string.max_len = 100];
+  ActiveFilter active_filter = 4;
+  optional string department_id = 5 [(buf.validate.field).string.uuid = true];
+  optional string division_id = 6 [(buf.validate.field).string.uuid = true];
+  optional string company_id = 7 [(buf.validate.field).string.uuid = true];
+  string sort_by = 8 [(buf.validate.field).string = {in: ["", "code", "name", "created_at"]}];
+  string sort_order = 9 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+}
+
+message ListSectionsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Section data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+message ExportSectionsRequest {
+  ActiveFilter active_filter = 1;
+  optional string department_id = 2;
+  optional string division_id = 3;
+  optional string company_id = 4;
+}
+
+message ExportSectionsResponse {
+  common.v1.BaseResponse base = 1;
+  bytes file_content = 2;
+  string file_name = 3;
+}
+
+message ImportSectionsRequest {
+  bytes file_content = 1 [(buf.validate.field).bytes = {min_len: 1, max_len: 10485760}];
+  string file_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 255}];
+  string duplicate_action = 3 [(buf.validate.field).string = {in: ["skip", "update", "error"], min_len: 1}];
+}
+
+message ImportSectionsResponse {
+  common.v1.BaseResponse base = 1;
+  int32 success_count = 2;
+  int32 skipped_count = 3;
+  int32 updated_count = 4;
+  int32 failed_count = 5;
+  repeated ImportError errors = 6;
+}
+
+message DownloadSectionTemplateRequest {}
+message DownloadSectionTemplateResponse {
+  common.v1.BaseResponse base = 1;
+  bytes file_content = 2;
+  string file_name = 3;
+}
+
+// =============================================================================
+// MESSAGES - Organization Tree
+// =============================================================================
+
+message GetOrganizationTreeRequest {
+  // Optional: filter by specific company
+  optional string company_id = 1 [(buf.validate.field).string.uuid = true];
+  // Include inactive items
+  bool include_inactive = 2;
+}
+
+message GetOrganizationTreeResponse {
+  common.v1.BaseResponse base = 1;
+  repeated OrganizationNode data = 2;
+}
+
+// OrganizationNode represents a node in the organization tree.
+message OrganizationNode {
+  string id = 1;
+  string code = 2;
+  string name = 3;
+  string type = 4; // "company", "division", "department", "section"
+  bool is_active = 5;
+  repeated OrganizationNode children = 6;
+}

@@ -1,0 +1,397 @@
+syntax = "proto3";
+
+package iam.v1;
+
+// Note: go_package is managed by buf.gen.yaml managed mode
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// SERVICE DEFINITION
+// =============================================================================
+
+// AuthService handles authentication operations.
+service AuthService {
+  // Login authenticates a user with username and password.
+  // Returns access token, refresh token, and user info.
+  // Note: Any existing session will be revoked (single-device policy).
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/auth/login"
+      body: "*"
+    };
+  }
+
+  // Logout invalidates the current session.
+  rpc Logout(LogoutRequest) returns (LogoutResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/auth/logout"
+      body: "*"
+    };
+  }
+
+  // RefreshToken exchanges a refresh token for new access/refresh tokens.
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/auth/refresh"
+      body: "*"
+    };
+  }
+
+  // ForgotPassword initiates password reset by sending OTP to email.
+  rpc ForgotPassword(ForgotPasswordRequest) returns (ForgotPasswordResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/auth/forgot-password"
+      body: "*"
+    };
+  }
+
+  // VerifyResetOTP validates the OTP code and returns a reset token.
+  rpc VerifyResetOTP(VerifyResetOTPRequest) returns (VerifyResetOTPResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/auth/verify-otp"
+      body: "*"
+    };
+  }
+
+  // ResetPassword sets a new password using a valid reset token.
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/auth/reset-password"
+      body: "*"
+    };
+  }
+
+  // UpdatePassword changes password for authenticated user.
+  rpc UpdatePassword(UpdatePasswordRequest) returns (UpdatePasswordResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/auth/update-password"
+      body: "*"
+    };
+  }
+
+  // Enable2FA initiates two-factor authentication setup.
+  // Returns a TOTP secret and QR code URL.
+  rpc Enable2FA(Enable2FARequest) returns (Enable2FAResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/auth/2fa/enable"
+      body: "*"
+    };
+  }
+
+  // Verify2FA confirms 2FA setup with a TOTP code.
+  rpc Verify2FA(Verify2FARequest) returns (Verify2FAResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/auth/2fa/verify"
+      body: "*"
+    };
+  }
+
+  // Disable2FA removes two-factor authentication.
+  rpc Disable2FA(Disable2FARequest) returns (Disable2FAResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/auth/2fa/disable"
+      body: "*"
+    };
+  }
+
+  // GetCurrentUser returns the authenticated user's info.
+  rpc GetCurrentUser(GetCurrentUserRequest) returns (GetCurrentUserResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/auth/me"};
+  }
+}
+
+// =============================================================================
+// MESSAGES - Login
+// =============================================================================
+
+// LoginRequest is the request for user login.
+message LoginRequest {
+  // Username or email for login.
+  string username = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+  // User password.
+  string password = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+  // TOTP code for 2FA login. Leave empty if 2FA is not enabled.
+  // Validation is skipped when empty; application layer handles the 2FA check.
+  string totp_code = 3 [(buf.validate.field) = {
+    ignore: IGNORE_IF_ZERO_VALUE
+    string: {
+      len: 6
+      pattern: "^[0-9]{6}$"
+    }
+  }];
+  // Device info for session tracking.
+  string device_info = 4 [(buf.validate.field).string.max_len = 100];
+}
+
+// LoginResponse is the response for successful login.
+message LoginResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Login result data.
+  LoginData data = 2;
+}
+
+// LoginData contains the login result.
+message LoginData {
+  // JWT access token (short-lived, e.g., 15 minutes).
+  string access_token = 1;
+  // Refresh token (long-lived, e.g., 7 days).
+  string refresh_token = 2;
+  // Access token expiry in seconds.
+  int64 expires_in = 3;
+  // Token type (always "Bearer").
+  string token_type = 4;
+  // Authenticated user info.
+  AuthUser user = 5;
+  // Whether 2FA is required (return true if 2FA enabled but totp_code not provided).
+  bool requires_2fa = 6;
+}
+
+// AuthUser contains basic user info for authentication context.
+message AuthUser {
+  // User ID.
+  string user_id = 1;
+  // Username.
+  string username = 2;
+  // Email address.
+  string email = 3;
+  // Full name.
+  string full_name = 4;
+  // Profile picture URL.
+  string profile_picture_url = 5;
+  // List of role codes (e.g., ["ADMIN", "MANAGER"]).
+  repeated string roles = 6;
+  // List of permission codes (e.g., ["finance.master.uom.view"]).
+  repeated string permissions = 7;
+  // Whether 2FA is enabled.
+  bool two_factor_enabled = 8;
+}
+
+// =============================================================================
+// MESSAGES - Logout
+// =============================================================================
+
+// LogoutRequest is the request for logout.
+message LogoutRequest {
+  // Refresh token to invalidate (optional, if not provided uses current session).
+  optional string refresh_token = 1;
+}
+
+// LogoutResponse is the response for logout.
+message LogoutResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// =============================================================================
+// MESSAGES - Refresh Token
+// =============================================================================
+
+// RefreshTokenRequest is the request for refreshing tokens.
+message RefreshTokenRequest {
+  // Current refresh token.
+  string refresh_token = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// RefreshTokenResponse is the response with new tokens.
+message RefreshTokenResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // New token pair.
+  TokenPair data = 2;
+}
+
+// TokenPair contains access and refresh tokens.
+message TokenPair {
+  // New JWT access token.
+  string access_token = 1;
+  // New refresh token.
+  string refresh_token = 2;
+  // Access token expiry in seconds.
+  int64 expires_in = 3;
+  // Token type (always "Bearer").
+  string token_type = 4;
+}
+
+// =============================================================================
+// MESSAGES - Forgot Password
+// =============================================================================
+
+// ForgotPasswordRequest initiates password reset.
+message ForgotPasswordRequest {
+  // Email address to send OTP.
+  string email = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+    pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+  }];
+}
+
+// ForgotPasswordResponse confirms OTP sent.
+message ForgotPasswordResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Message indicating OTP was sent.
+  string message = 2;
+  // OTP expiry in seconds (e.g., 300 = 5 minutes).
+  int32 expires_in = 3;
+}
+
+// =============================================================================
+// MESSAGES - Verify OTP
+// =============================================================================
+
+// VerifyResetOTPRequest validates the OTP code.
+message VerifyResetOTPRequest {
+  // Email address.
+  string email = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+  // 6-digit OTP code.
+  string otp_code = 2 [(buf.validate.field).string = {
+    len: 6
+    pattern: "^[0-9]{6}$"
+  }];
+}
+
+// VerifyResetOTPResponse returns a reset token.
+message VerifyResetOTPResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Reset token for password reset (valid for 10 minutes).
+  string reset_token = 2;
+}
+
+// =============================================================================
+// MESSAGES - Reset Password
+// =============================================================================
+
+// ResetPasswordRequest sets a new password.
+message ResetPasswordRequest {
+  // Reset token from VerifyResetOTP.
+  string reset_token = 1 [(buf.validate.field).string.min_len = 1];
+  // New password (min 8 chars, must contain uppercase, lowercase, number).
+  string new_password = 2 [(buf.validate.field).string = {
+    min_len: 8
+    max_len: 100
+  }];
+  // Confirm new password.
+  string confirm_password = 3 [(buf.validate.field).string = {
+    min_len: 8
+    max_len: 100
+  }];
+}
+
+// ResetPasswordResponse confirms password reset.
+message ResetPasswordResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// =============================================================================
+// MESSAGES - Update Password
+// =============================================================================
+
+// UpdatePasswordRequest changes password for authenticated user.
+message UpdatePasswordRequest {
+  // Current password for verification.
+  string current_password = 1 [(buf.validate.field).string.min_len = 1];
+  // New password.
+  string new_password = 2 [(buf.validate.field).string = {
+    min_len: 8
+    max_len: 100
+  }];
+  // Confirm new password.
+  string confirm_password = 3 [(buf.validate.field).string = {
+    min_len: 8
+    max_len: 100
+  }];
+}
+
+// UpdatePasswordResponse confirms password update.
+message UpdatePasswordResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// =============================================================================
+// MESSAGES - 2FA
+// =============================================================================
+
+// Enable2FARequest initiates 2FA setup.
+message Enable2FARequest {
+  // Current password for verification.
+  string password = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// Enable2FAResponse returns 2FA setup info.
+message Enable2FAResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // 2FA setup data.
+  TwoFactorSetup data = 2;
+}
+
+// TwoFactorSetup contains TOTP setup information.
+message TwoFactorSetup {
+  // TOTP secret (Base32 encoded).
+  string secret = 1;
+  // QR code URL for authenticator apps.
+  string qr_code_url = 2;
+  // Recovery codes (one-time use).
+  repeated string recovery_codes = 3;
+}
+
+// Verify2FARequest confirms 2FA setup.
+message Verify2FARequest {
+  // TOTP code from authenticator app.
+  string totp_code = 1 [(buf.validate.field).string = {
+    len: 6
+    pattern: "^[0-9]{6}$"
+  }];
+}
+
+// Verify2FAResponse confirms 2FA is enabled.
+message Verify2FAResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// Disable2FARequest removes 2FA.
+message Disable2FARequest {
+  // Current password for verification.
+  string password = 1 [(buf.validate.field).string.min_len = 1];
+  // TOTP code OR recovery code.
+  string verification_code = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+// Disable2FAResponse confirms 2FA is disabled.
+message Disable2FAResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// =============================================================================
+// MESSAGES - Get Current User
+// =============================================================================
+
+// GetCurrentUserRequest is empty (uses JWT context).
+message GetCurrentUserRequest {}
+
+// GetCurrentUserResponse returns authenticated user info.
+message GetCurrentUserResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // User info.
+  AuthUser data = 2;
+}

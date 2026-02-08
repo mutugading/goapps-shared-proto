@@ -1,0 +1,630 @@
+syntax = "proto3";
+
+package iam.v1;
+
+// Note: go_package is managed by buf.gen.yaml managed mode
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+// ActiveFilter represents filter options for is_active field.
+enum ActiveFilter {
+  // Show all records regardless of active status (default).
+  ACTIVE_FILTER_UNSPECIFIED = 0;
+  // Show only active records.
+  ACTIVE_FILTER_ACTIVE = 1;
+  // Show only inactive records.
+  ACTIVE_FILTER_INACTIVE = 2;
+}
+
+// =============================================================================
+// SERVICE DEFINITION
+// =============================================================================
+
+// UserService provides CRUD operations for user/employee management.
+service UserService {
+  // CreateUser creates a new user (admin only).
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/users"
+      body: "*"
+    };
+  }
+
+  // GetUser retrieves a user by ID.
+  rpc GetUser(GetUserRequest) returns (GetUserResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/users/{user_id}"};
+  }
+
+  // GetUserDetail retrieves user with full employee details.
+  rpc GetUserDetail(GetUserDetailRequest) returns (GetUserDetailResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/users/{user_id}/detail"};
+  }
+
+  // UpdateUser updates user credentials.
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/iam/users/{user_id}"
+      body: "*"
+    };
+  }
+
+  // UpdateUserDetail updates employee details.
+  rpc UpdateUserDetail(UpdateUserDetailRequest) returns (UpdateUserDetailResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/iam/users/{user_id}/detail"
+      body: "*"
+    };
+  }
+
+  // DeleteUser soft deletes a user.
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse) {
+    option (google.api.http) = {delete: "/api/v1/iam/users/{user_id}"};
+  }
+
+  // ListUsers lists users with search, filter, sort, and pagination.
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/users"};
+  }
+
+  // ExportUsers exports users to Excel file.
+  rpc ExportUsers(ExportUsersRequest) returns (ExportUsersResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/users/export"};
+  }
+
+  // ImportUsers imports users from Excel file.
+  rpc ImportUsers(ImportUsersRequest) returns (ImportUsersResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/users/import"
+      body: "*"
+    };
+  }
+
+  // DownloadTemplate downloads the Excel import template.
+  rpc DownloadTemplate(DownloadTemplateRequest) returns (DownloadTemplateResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/users/template"};
+  }
+
+  // AssignUserRoles assigns roles to a user.
+  rpc AssignUserRoles(AssignUserRolesRequest) returns (AssignUserRolesResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/users/{user_id}/roles"
+      body: "*"
+    };
+  }
+
+  // RemoveUserRoles removes roles from a user.
+  rpc RemoveUserRoles(RemoveUserRolesRequest) returns (RemoveUserRolesResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/users/{user_id}/roles/remove"
+      body: "*"
+    };
+  }
+
+  // AssignUserPermissions assigns direct permissions to a user.
+  rpc AssignUserPermissions(AssignUserPermissionsRequest) returns (AssignUserPermissionsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/users/{user_id}/permissions"
+      body: "*"
+    };
+  }
+
+  // RemoveUserPermissions removes direct permissions from a user.
+  rpc RemoveUserPermissions(RemoveUserPermissionsRequest) returns (RemoveUserPermissionsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/users/{user_id}/permissions/remove"
+      body: "*"
+    };
+  }
+
+  // GetUserRolesAndPermissions gets all roles and permissions for a user.
+  rpc GetUserRolesAndPermissions(GetUserRolesAndPermissionsRequest) returns (GetUserRolesAndPermissionsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/users/{user_id}/access"};
+  }
+}
+
+// =============================================================================
+// MESSAGES - Entity
+// =============================================================================
+
+// User represents a user entity.
+message User {
+  // Unique identifier (UUID).
+  string user_id = 1;
+  // Unique username for login.
+  string username = 2;
+  // Email address.
+  string email = 3;
+  // Whether the user account is active.
+  bool is_active = 4;
+  // Whether the account is locked.
+  bool is_locked = 5;
+  // Whether 2FA is enabled.
+  bool two_factor_enabled = 6;
+  // Last login timestamp (ISO 8601).
+  optional string last_login_at = 7;
+  // Audit information.
+  common.v1.AuditInfo audit = 8;
+}
+
+// UserDetail represents employee details.
+message UserDetail {
+  // Detail ID.
+  string detail_id = 1;
+  // User ID reference.
+  string user_id = 2;
+  // Section ID reference.
+  optional string section_id = 3;
+  // Section info (populated on read).
+  optional SectionInfo section = 4;
+  // Employee code (HR ID).
+  string employee_code = 5;
+  // Full name.
+  string full_name = 6;
+  // First name.
+  string first_name = 7;
+  // Last name.
+  string last_name = 8;
+  // Phone number.
+  optional string phone = 9;
+  // Profile picture URL.
+  optional string profile_picture_url = 10;
+  // Job position/title.
+  optional string position = 11;
+  // Date of birth (ISO 8601 date).
+  optional string date_of_birth = 12;
+  // Address.
+  optional string address = 13;
+  // Audit information.
+  common.v1.AuditInfo audit = 14;
+}
+
+// SectionInfo contains section with hierarchy info.
+message SectionInfo {
+  string section_id = 1;
+  string section_code = 2;
+  string section_name = 3;
+  string department_id = 4;
+  string department_code = 5;
+  string department_name = 6;
+  string division_id = 7;
+  string division_code = 8;
+  string division_name = 9;
+  string company_id = 10;
+  string company_code = 11;
+  string company_name = 12;
+}
+
+// UserWithDetail combines User and UserDetail.
+message UserWithDetail {
+  User user = 1;
+  UserDetail detail = 2;
+  repeated string role_codes = 3;
+}
+
+// =============================================================================
+// MESSAGES - Create
+// =============================================================================
+
+// CreateUserRequest creates a new user with employee details.
+message CreateUserRequest {
+  // Username (unique, 3-50 chars, alphanumeric with underscore).
+  string username = 1 [(buf.validate.field).string = {
+    min_len: 3
+    max_len: 50
+    pattern: "^[a-zA-Z][a-zA-Z0-9_]*$"
+  }];
+  // Email address (unique).
+  string email = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+    pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+  }];
+  // Initial password (min 8 chars).
+  string password = 3 [(buf.validate.field).string = {
+    min_len: 8
+    max_len: 100
+  }];
+  // Employee code (unique, HR ID).
+  string employee_code = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 20
+  }];
+  // Full name.
+  string full_name = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+  // First name.
+  string first_name = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+  // Last name.
+  string last_name = 7 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+  // Section ID (optional).
+  optional string section_id = 8 [(buf.validate.field).string.uuid = true];
+  // Phone number (optional).
+  optional string phone = 9 [(buf.validate.field).string.max_len = 20];
+  // Position/job title (optional).
+  optional string position = 10 [(buf.validate.field).string.max_len = 50];
+  // Date of birth (optional, ISO 8601 date).
+  optional string date_of_birth = 11;
+  // Address (optional).
+  optional string address = 12 [(buf.validate.field).string.max_len = 500];
+  // Initial role IDs to assign.
+  repeated string role_ids = 13;
+}
+
+// CreateUserResponse is the response for creating a user.
+message CreateUserResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Created user data.
+  UserWithDetail data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Get
+// =============================================================================
+
+// GetUserRequest retrieves a user by ID.
+message GetUserRequest {
+  // User ID (UUID format).
+  string user_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// GetUserResponse is the response for getting a user.
+message GetUserResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // User data.
+  User data = 2;
+}
+
+// GetUserDetailRequest retrieves user with full details.
+message GetUserDetailRequest {
+  // User ID (UUID format).
+  string user_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// GetUserDetailResponse is the response for getting user details.
+message GetUserDetailResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // User with details.
+  UserWithDetail data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Update
+// =============================================================================
+
+// UpdateUserRequest updates user credentials.
+message UpdateUserRequest {
+  // User ID to update.
+  string user_id = 1 [(buf.validate.field).string.uuid = true];
+  // New username (optional).
+  optional string username = 2 [(buf.validate.field).string = {
+    min_len: 3
+    max_len: 50
+    pattern: "^[a-zA-Z][a-zA-Z0-9_]*$"
+  }];
+  // New email (optional).
+  optional string email = 3 [(buf.validate.field).string = {
+    max_len: 255
+    pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+  }];
+  // New active status (optional).
+  optional bool is_active = 4;
+  // Unlock account (optional).
+  optional bool unlock_account = 5;
+}
+
+// UpdateUserResponse is the response for updating a user.
+message UpdateUserResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Updated user data.
+  User data = 2;
+}
+
+// UpdateUserDetailRequest updates employee details.
+message UpdateUserDetailRequest {
+  // User ID to update.
+  string user_id = 1 [(buf.validate.field).string.uuid = true];
+  // New employee code (optional).
+  optional string employee_code = 2 [(buf.validate.field).string.max_len = 20];
+  // New full name (optional).
+  optional string full_name = 3 [(buf.validate.field).string.max_len = 100];
+  // New first name (optional).
+  optional string first_name = 4 [(buf.validate.field).string.max_len = 100];
+  // New last name (optional).
+  optional string last_name = 5 [(buf.validate.field).string.max_len = 100];
+  // New section ID (optional).
+  optional string section_id = 6 [(buf.validate.field).string.uuid = true];
+  // New phone number (optional).
+  optional string phone = 7 [(buf.validate.field).string.max_len = 20];
+  // New profile picture URL (optional).
+  optional string profile_picture_url = 8 [(buf.validate.field).string.max_len = 500];
+  // New position (optional).
+  optional string position = 9 [(buf.validate.field).string.max_len = 50];
+  // New date of birth (optional).
+  optional string date_of_birth = 10;
+  // New address (optional).
+  optional string address = 11 [(buf.validate.field).string.max_len = 500];
+}
+
+// UpdateUserDetailResponse is the response for updating user details.
+message UpdateUserDetailResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Updated user detail.
+  UserDetail data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Delete
+// =============================================================================
+
+// DeleteUserRequest soft deletes a user.
+message DeleteUserRequest {
+  // User ID to delete.
+  string user_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// DeleteUserResponse is the response for deleting a user.
+message DeleteUserResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// =============================================================================
+// MESSAGES - List
+// =============================================================================
+
+// ListUsersRequest lists users with search, filter, sort, and pagination.
+message ListUsersRequest {
+  // Page number (1-indexed, default 1).
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  // Items per page (1-100, default 10).
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
+  // Search query (searches in username, email, full_name, employee_code).
+  string search = 3 [(buf.validate.field).string.max_len = 100];
+  // Filter by active status.
+  ActiveFilter active_filter = 4;
+  // Filter by section ID.
+  optional string section_id = 5 [(buf.validate.field).string.uuid = true];
+  // Filter by department ID.
+  optional string department_id = 6 [(buf.validate.field).string.uuid = true];
+  // Filter by division ID.
+  optional string division_id = 7 [(buf.validate.field).string.uuid = true];
+  // Filter by company ID.
+  optional string company_id = 8 [(buf.validate.field).string.uuid = true];
+  // Filter by role ID.
+  optional string role_id = 9 [(buf.validate.field).string.uuid = true];
+  // Sort field: "username", "email", "full_name", "employee_code", "created_at".
+  string sort_by = 10 [(buf.validate.field).string = {
+    in: ["", "username", "email", "full_name", "employee_code", "created_at"]
+  }];
+  // Sort order: "asc", "desc" (default: "asc").
+  string sort_order = 11 [(buf.validate.field).string = {
+    in: ["", "asc", "desc"]
+  }];
+}
+
+// ListUsersResponse is the response for listing users.
+message ListUsersResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // List of users with details.
+  repeated UserWithDetail data = 2;
+  // Pagination metadata.
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// =============================================================================
+// MESSAGES - Export
+// =============================================================================
+
+// ExportUsersRequest exports users to Excel.
+message ExportUsersRequest {
+  // Filter by active status.
+  ActiveFilter active_filter = 1;
+  // Filter by section ID.
+  optional string section_id = 2;
+  // Filter by department ID.
+  optional string department_id = 3;
+  // Filter by division ID.
+  optional string division_id = 4;
+  // Filter by company ID.
+  optional string company_id = 5;
+}
+
+// ExportUsersResponse contains the Excel file.
+message ExportUsersResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Excel file content as bytes.
+  bytes file_content = 2;
+  // Suggested filename.
+  string file_name = 3;
+}
+
+// =============================================================================
+// MESSAGES - Import
+// =============================================================================
+
+// ImportUsersRequest imports users from Excel.
+message ImportUsersRequest {
+  // Excel file content as bytes.
+  bytes file_content = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 10485760
+  }];
+  // Original filename.
+  string file_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+    pattern: "^[^/\\\\]+\\.(xlsx|xls)$"
+  }];
+  // How to handle duplicates: "skip", "update", "error".
+  string duplicate_action = 3 [(buf.validate.field).string = {
+    in: ["skip", "update", "error"]
+    min_len: 1
+  }];
+}
+
+// ImportUsersResponse is the response for importing users.
+message ImportUsersResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Number of successfully imported records.
+  int32 success_count = 2;
+  // Number of skipped records.
+  int32 skipped_count = 3;
+  // Number of updated records.
+  int32 updated_count = 4;
+  // Number of failed records.
+  int32 failed_count = 5;
+  // Details of failed records.
+  repeated ImportError errors = 6;
+}
+
+// ImportError represents a single import error.
+message ImportError {
+  // Row number in the Excel file.
+  int32 row_number = 1;
+  // Field that caused the error.
+  string field = 2;
+  // Error message.
+  string message = 3;
+}
+
+// DownloadTemplateRequest is the request for downloading the import template.
+message DownloadTemplateRequest {}
+
+// DownloadTemplateResponse contains the template file.
+message DownloadTemplateResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Excel template file content.
+  bytes file_content = 2;
+  // Suggested filename.
+  string file_name = 3;
+}
+
+// =============================================================================
+// MESSAGES - Role/Permission Assignment
+// =============================================================================
+
+// AssignUserRolesRequest assigns roles to a user.
+message AssignUserRolesRequest {
+  // User ID.
+  string user_id = 1 [(buf.validate.field).string.uuid = true];
+  // Role IDs to assign.
+  repeated string role_ids = 2 [(buf.validate.field).repeated.min_items = 1];
+}
+
+// AssignUserRolesResponse is the response for assigning roles.
+message AssignUserRolesResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// RemoveUserRolesRequest removes roles from a user.
+message RemoveUserRolesRequest {
+  // User ID.
+  string user_id = 1 [(buf.validate.field).string.uuid = true];
+  // Role IDs to remove.
+  repeated string role_ids = 2 [(buf.validate.field).repeated.min_items = 1];
+}
+
+// RemoveUserRolesResponse is the response for removing roles.
+message RemoveUserRolesResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// AssignUserPermissionsRequest assigns direct permissions to a user.
+message AssignUserPermissionsRequest {
+  // User ID.
+  string user_id = 1 [(buf.validate.field).string.uuid = true];
+  // Permission IDs to assign.
+  repeated string permission_ids = 2 [(buf.validate.field).repeated.min_items = 1];
+}
+
+// AssignUserPermissionsResponse is the response for assigning permissions.
+message AssignUserPermissionsResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// RemoveUserPermissionsRequest removes direct permissions from a user.
+message RemoveUserPermissionsRequest {
+  // User ID.
+  string user_id = 1 [(buf.validate.field).string.uuid = true];
+  // Permission IDs to remove.
+  repeated string permission_ids = 2 [(buf.validate.field).repeated.min_items = 1];
+}
+
+// RemoveUserPermissionsResponse is the response for removing permissions.
+message RemoveUserPermissionsResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// GetUserRolesAndPermissionsRequest gets all roles and permissions for a user.
+message GetUserRolesAndPermissionsRequest {
+  // User ID.
+  string user_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// GetUserRolesAndPermissionsResponse contains user's access info.
+message GetUserRolesAndPermissionsResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Access data.
+  UserAccessInfo data = 2;
+}
+
+// UserAccessInfo contains roles and permissions for a user.
+message UserAccessInfo {
+  // User ID.
+  string user_id = 1;
+  // Assigned roles with their permissions.
+  repeated RoleWithPermissions roles = 2;
+  // Direct permissions (not from roles).
+  repeated Permission direct_permissions = 3;
+  // All unique permission codes (combined from roles and direct).
+  repeated string all_permission_codes = 4;
+}
+
+// RoleWithPermissions contains role info with its permissions.
+message RoleWithPermissions {
+  string role_id = 1;
+  string role_code = 2;
+  string role_name = 3;
+  repeated Permission permissions = 4;
+}
+
+// Permission represents a permission entity.
+message Permission {
+  string permission_id = 1;
+  string permission_code = 2;
+  string permission_name = 3;
+  string service_name = 4;
+  string module_name = 5;
+  string action_type = 6;
+}

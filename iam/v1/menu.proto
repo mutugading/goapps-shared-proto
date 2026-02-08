@@ -1,0 +1,345 @@
+syntax = "proto3";
+
+package iam.v1;
+
+// Note: go_package is managed by buf.gen.yaml managed mode
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+import "iam/v1/user.proto";
+
+// =============================================================================
+// SERVICE DEFINITION
+// =============================================================================
+
+// MenuService provides CRUD operations for dynamic menu management.
+service MenuService {
+  rpc CreateMenu(CreateMenuRequest) returns (CreateMenuResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/menus"
+      body: "*"
+    };
+  }
+  rpc GetMenu(GetMenuRequest) returns (GetMenuResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/menus/{menu_id}"};
+  }
+  rpc UpdateMenu(UpdateMenuRequest) returns (UpdateMenuResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/iam/menus/{menu_id}"
+      body: "*"
+    };
+  }
+  rpc DeleteMenu(DeleteMenuRequest) returns (DeleteMenuResponse) {
+    option (google.api.http) = {delete: "/api/v1/iam/menus/{menu_id}"};
+  }
+  rpc ListMenus(ListMenusRequest) returns (ListMenusResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/menus"};
+  }
+  rpc ExportMenus(ExportMenusRequest) returns (ExportMenusResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/menus/export"};
+  }
+  rpc ImportMenus(ImportMenusRequest) returns (ImportMenusResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/menus/import"
+      body: "*"
+    };
+  }
+  rpc DownloadMenuTemplate(DownloadMenuTemplateRequest) returns (DownloadMenuTemplateResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/menus/template"};
+  }
+
+  // Get menu tree for current authenticated user (filtered by permissions)
+  rpc GetMenuTree(GetMenuTreeRequest) returns (GetMenuTreeResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/menus/tree"};
+  }
+
+  // Get full menu tree for admin management (not filtered by permissions)
+  rpc GetFullMenuTree(GetFullMenuTreeRequest) returns (GetFullMenuTreeResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/menus/tree/full"};
+  }
+
+  // Menu-Permission assignment
+  rpc AssignMenuPermissions(AssignMenuPermissionsRequest) returns (AssignMenuPermissionsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/menus/{menu_id}/permissions"
+      body: "*"
+    };
+  }
+  rpc RemoveMenuPermissions(RemoveMenuPermissionsRequest) returns (RemoveMenuPermissionsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/menus/{menu_id}/permissions/remove"
+      body: "*"
+    };
+  }
+  rpc GetMenuPermissions(GetMenuPermissionsRequest) returns (GetMenuPermissionsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/menus/{menu_id}/permissions"};
+  }
+
+  // Reorder menus within same parent
+  rpc ReorderMenus(ReorderMenusRequest) returns (ReorderMenusResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/menus/reorder"
+      body: "*"
+    };
+  }
+}
+
+// =============================================================================
+// MESSAGES - Menu Entity
+// =============================================================================
+
+// MenuLevel represents the hierarchy level of a menu.
+enum MenuLevel {
+  MENU_LEVEL_UNSPECIFIED = 0;
+  MENU_LEVEL_ROOT = 1;    // Level 1: Root menu (e.g., Dashboard, Finance)
+  MENU_LEVEL_PARENT = 2;  // Level 2: Parent menu (e.g., Master, Transaction)
+  MENU_LEVEL_CHILD = 3;   // Level 3: Child menu (e.g., UOM, Parameter)
+}
+
+// Menu represents a menu entity.
+message Menu {
+  string menu_id = 1;
+  // Parent menu ID (null for root level).
+  optional string parent_id = 2;
+  // Unique menu code.
+  string menu_code = 3;
+  // Display title.
+  string menu_title = 4;
+  // Route URL path (null for parent-only menus without links).
+  optional string menu_url = 5;
+  // Lucide icon name (e.g., "DollarSign", "Settings", "Users").
+  string icon_name = 6;
+  // Service name (e.g., "finance", "hr", "iam").
+  string service_name = 7;
+  // Menu level: 1=root, 2=parent, 3=child.
+  MenuLevel menu_level = 8;
+  // Sort order within parent.
+  int32 sort_order = 9;
+  // Whether the menu is visible in sidebar.
+  bool is_visible = 10;
+  // Whether the menu is active (can be toggled without deletion).
+  bool is_active = 11;
+  // Audit information.
+  common.v1.AuditInfo audit = 12;
+}
+
+// MenuWithChildren represents a menu with its child menus (for tree view).
+message MenuWithChildren {
+  Menu menu = 1;
+  repeated MenuWithChildren children = 2;
+  // Required permission codes to view this menu.
+  repeated string required_permissions = 3;
+}
+
+// =============================================================================
+// MESSAGES - Menu CRUD
+// =============================================================================
+
+message CreateMenuRequest {
+  // Parent menu ID (optional, null for root level).
+  optional string parent_id = 1 [(buf.validate.field).string.uuid = true];
+  // Unique menu code.
+  string menu_code = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 50
+    pattern: "^[A-Z][A-Z0-9_]*$"
+  }];
+  // Display title.
+  string menu_title = 3 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+  // Route URL path (optional for parent-only menus).
+  optional string menu_url = 4 [(buf.validate.field).string.max_len = 255];
+  // Lucide icon name.
+  string icon_name = 5 [(buf.validate.field).string = {min_len: 1, max_len: 50}];
+  // Service name.
+  string service_name = 6 [(buf.validate.field).string = {min_len: 1, max_len: 50}];
+  // Menu level (must match parent hierarchy).
+  MenuLevel menu_level = 7 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // Initial sort order (optional, auto-assigned if not provided).
+  optional int32 sort_order = 8;
+  // Initial visibility state (default true).
+  bool is_visible = 9;
+  // Initial permission IDs to require for this menu.
+  repeated string permission_ids = 10;
+}
+
+message CreateMenuResponse {
+  common.v1.BaseResponse base = 1;
+  Menu data = 2;
+}
+
+message GetMenuRequest {
+  string menu_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetMenuResponse {
+  common.v1.BaseResponse base = 1;
+  Menu data = 2;
+  repeated Permission required_permissions = 3;
+}
+
+message UpdateMenuRequest {
+  string menu_id = 1 [(buf.validate.field).string.uuid = true];
+  // Cannot change parent after creation (use reorder for moving).
+  optional string menu_title = 2 [(buf.validate.field).string.max_len = 100];
+  optional string menu_url = 3 [(buf.validate.field).string.max_len = 255];
+  optional string icon_name = 4 [(buf.validate.field).string.max_len = 50];
+  optional int32 sort_order = 5;
+  optional bool is_visible = 6;
+  optional bool is_active = 7;
+}
+
+message UpdateMenuResponse {
+  common.v1.BaseResponse base = 1;
+  Menu data = 2;
+}
+
+message DeleteMenuRequest {
+  string menu_id = 1 [(buf.validate.field).string.uuid = true];
+  // If true, also delete all child menus. Otherwise fails if has children.
+  bool cascade = 2;
+}
+
+message DeleteMenuResponse {
+  common.v1.BaseResponse base = 1;
+  // Number of menus deleted (1 + children if cascade).
+  int32 deleted_count = 2;
+}
+
+message ListMenusRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  string search = 3 [(buf.validate.field).string.max_len = 100];
+  ActiveFilter active_filter = 4;
+  // Filter by visibility.
+  optional bool is_visible = 5;
+  // Filter by service name.
+  string service_name = 6 [(buf.validate.field).string.max_len = 50];
+  // Filter by menu level.
+  MenuLevel menu_level = 7;
+  // Filter by parent ID (null/unset for root only).
+  optional string parent_id = 8 [(buf.validate.field).string.uuid = true];
+  string sort_by = 9 [(buf.validate.field).string = {in: ["", "code", "title", "sort_order", "created_at"]}];
+  string sort_order = 10 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+}
+
+message ListMenusResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Menu data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+message ExportMenusRequest {
+  ActiveFilter active_filter = 1;
+  optional bool is_visible = 2;
+  string service_name = 3;
+}
+
+message ExportMenusResponse {
+  common.v1.BaseResponse base = 1;
+  bytes file_content = 2;
+  string file_name = 3;
+}
+
+message ImportMenusRequest {
+  bytes file_content = 1 [(buf.validate.field).bytes = {min_len: 1, max_len: 10485760}];
+  string file_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 255}];
+  string duplicate_action = 3 [(buf.validate.field).string = {in: ["skip", "update", "error"], min_len: 1}];
+}
+
+message ImportMenusResponse {
+  common.v1.BaseResponse base = 1;
+  int32 success_count = 2;
+  int32 skipped_count = 3;
+  int32 updated_count = 4;
+  int32 failed_count = 5;
+  repeated ImportError errors = 6;
+}
+
+message DownloadMenuTemplateRequest {}
+message DownloadMenuTemplateResponse {
+  common.v1.BaseResponse base = 1;
+  bytes file_content = 2;
+  string file_name = 3;
+}
+
+// =============================================================================
+// MESSAGES - Menu Tree
+// =============================================================================
+
+// GetMenuTreeRequest gets menu tree for current user (filtered by permissions).
+message GetMenuTreeRequest {
+  // Filter by service name (optional, returns all services if empty).
+  string service_name = 1 [(buf.validate.field).string.max_len = 50];
+}
+
+// GetMenuTreeResponse returns the menu tree for sidebar navigation.
+message GetMenuTreeResponse {
+  common.v1.BaseResponse base = 1;
+  repeated MenuWithChildren data = 2;
+}
+
+// GetFullMenuTreeRequest gets full menu tree for admin (not filtered).
+message GetFullMenuTreeRequest {
+  // Filter by service name (optional).
+  string service_name = 1 [(buf.validate.field).string.max_len = 50];
+  // Include inactive menus.
+  bool include_inactive = 2;
+  // Include hidden menus (is_visible = false).
+  bool include_hidden = 3;
+}
+
+// GetFullMenuTreeResponse returns the full menu tree for admin management.
+message GetFullMenuTreeResponse {
+  common.v1.BaseResponse base = 1;
+  repeated MenuWithChildren data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Menu-Permission Assignment
+// =============================================================================
+
+message AssignMenuPermissionsRequest {
+  string menu_id = 1 [(buf.validate.field).string.uuid = true];
+  repeated string permission_ids = 2 [(buf.validate.field).repeated.min_items = 1];
+}
+
+message AssignMenuPermissionsResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message RemoveMenuPermissionsRequest {
+  string menu_id = 1 [(buf.validate.field).string.uuid = true];
+  repeated string permission_ids = 2 [(buf.validate.field).repeated.min_items = 1];
+}
+
+message RemoveMenuPermissionsResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message GetMenuPermissionsRequest {
+  string menu_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetMenuPermissionsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Permission data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Menu Reorder
+// =============================================================================
+
+message ReorderMenusRequest {
+  // Parent ID (null for reordering root menus).
+  optional string parent_id = 1 [(buf.validate.field).string.uuid = true];
+  // Ordered list of menu IDs in their new order.
+  repeated string menu_ids = 2 [(buf.validate.field).repeated.min_items = 1];
+}
+
+message ReorderMenusResponse {
+  common.v1.BaseResponse base = 1;
+}
