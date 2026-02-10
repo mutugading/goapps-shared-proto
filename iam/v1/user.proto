@@ -126,6 +126,15 @@ service UserService {
   rpc GetUserRolesAndPermissions(GetUserRolesAndPermissionsRequest) returns (GetUserRolesAndPermissionsResponse) {
     option (google.api.http) = {get: "/api/v1/iam/users/{user_id}/access"};
   }
+
+  // UploadProfilePicture uploads or replaces a user's profile picture.
+  // Old picture is automatically deleted when a new one is uploaded.
+  rpc UploadProfilePicture(UploadProfilePictureRequest) returns (UploadProfilePictureResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/users/{user_id}/avatar"
+      body: "*"
+    };
+  }
 }
 
 // =============================================================================
@@ -416,11 +425,22 @@ message ListUsersRequest {
   optional string role_id = 9 [(buf.validate.field).string.uuid = true];
   // Sort field: "username", "email", "full_name", "employee_code", "created_at".
   string sort_by = 10 [(buf.validate.field).string = {
-    in: ["", "username", "email", "full_name", "employee_code", "created_at"]
+    in: [
+      "",
+      "username",
+      "email",
+      "full_name",
+      "employee_code",
+      "created_at"
+    ]
   }];
   // Sort order: "asc", "desc" (default: "asc").
   string sort_order = 11 [(buf.validate.field).string = {
-    in: ["", "asc", "desc"]
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
   }];
 }
 
@@ -481,7 +501,11 @@ message ImportUsersRequest {
   }];
   // How to handle duplicates: "skip", "update", "error".
   string duplicate_action = 3 [(buf.validate.field).string = {
-    in: ["skip", "update", "error"]
+    in: [
+      "skip",
+      "update",
+      "error"
+    ]
     min_len: 1
   }];
 }
@@ -627,4 +651,33 @@ message Permission {
   string service_name = 4;
   string module_name = 5;
   string action_type = 6;
+}
+
+// =============================================================================
+// MESSAGES - Profile Picture Upload
+// =============================================================================
+
+// UploadProfilePictureRequest is the request for uploading a profile picture.
+message UploadProfilePictureRequest {
+  // User ID whose profile picture is being uploaded.
+  string user_id = 1 [(buf.validate.field).string.uuid = true];
+  // Raw file data (binary).
+  bytes file_data = 2 [(buf.validate.field).bytes.max_len = 2097152]; // 2MB max
+  // Original file name (e.g., "avatar.jpg").
+  string file_name = 3 [(buf.validate.field).string.min_len = 1];
+  // MIME content type (image/jpeg, image/png, image/webp).
+  string content_type = 4 [(buf.validate.field).string = {
+    in: [
+      "image/jpeg",
+      "image/png",
+      "image/webp"
+    ]
+  }];
+}
+
+// UploadProfilePictureResponse is the response for profile picture upload.
+message UploadProfilePictureResponse {
+  common.v1.BaseResponse base = 1;
+  // The public URL of the uploaded profile picture.
+  string profile_picture_url = 2;
 }

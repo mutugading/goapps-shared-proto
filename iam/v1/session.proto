@@ -80,14 +80,30 @@ message RevokeSessionResponse {
 
 message ListActiveSessionsRequest {
   int32 page = 1 [(buf.validate.field).int32.gte = 1];
-  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
   string search = 3 [(buf.validate.field).string.max_len = 100];
   // Filter by service name.
   string service_name = 4 [(buf.validate.field).string.max_len = 50];
   // Filter by user ID.
   optional string user_id = 5 [(buf.validate.field).string.uuid = true];
-  string sort_by = 6 [(buf.validate.field).string = {in: ["", "username", "created_at", "expires_at"]}];
-  string sort_order = 7 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+  string sort_by = 6 [(buf.validate.field).string = {
+    in: [
+      "",
+      "username",
+      "created_at",
+      "expires_at"
+    ]
+  }];
+  string sort_order = 7 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
 }
 
 message ListActiveSessionsResponse {

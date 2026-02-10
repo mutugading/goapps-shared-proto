@@ -118,9 +118,9 @@ message Role {
   string role_code = 2;
   string role_name = 3;
   string description = 4;
-  bool is_system = 5;  // System roles cannot be deleted
+  bool is_system = 5; // System roles cannot be deleted
   bool is_active = 6;
-  int32 user_count = 7;  // Number of users with this role
+  int32 user_count = 7; // Number of users with this role
   common.v1.AuditInfo audit = 8;
 }
 
@@ -134,7 +134,10 @@ message CreateRoleRequest {
     max_len: 50
     pattern: "^[A-Z][A-Z0-9_]*$"
   }];
-  string role_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+  string role_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
   string description = 3 [(buf.validate.field).string.max_len = 500];
   // Initial permission IDs to assign
   repeated string permission_ids = 4;
@@ -176,13 +179,30 @@ message DeleteRoleResponse {
 
 message ListRolesRequest {
   int32 page = 1 [(buf.validate.field).int32.gte = 1];
-  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
   string search = 3 [(buf.validate.field).string.max_len = 100];
   ActiveFilter active_filter = 4;
   // Filter by is_system flag
   optional bool is_system = 5;
-  string sort_by = 6 [(buf.validate.field).string = {in: ["", "code", "name", "created_at", "user_count"]}];
-  string sort_order = 7 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+  string sort_by = 6 [(buf.validate.field).string = {
+    in: [
+      "",
+      "code",
+      "name",
+      "created_at",
+      "user_count"
+    ]
+  }];
+  string sort_order = 7 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
 }
 
 message ListRolesResponse {
@@ -203,9 +223,22 @@ message ExportRolesResponse {
 }
 
 message ImportRolesRequest {
-  bytes file_content = 1 [(buf.validate.field).bytes = {min_len: 1, max_len: 10485760}];
-  string file_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 255}];
-  string duplicate_action = 3 [(buf.validate.field).string = {in: ["skip", "update", "error"], min_len: 1}];
+  bytes file_content = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 10485760
+  }];
+  string file_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+  string duplicate_action = 3 [(buf.validate.field).string = {
+    in: [
+      "skip",
+      "update",
+      "error"
+    ]
+    min_len: 1
+  }];
 }
 
 message ImportRolesResponse {
@@ -266,9 +299,9 @@ message PermissionDetail {
   string description = 4;
   string service_name = 5;
   string module_name = 6;
-  string action_type = 7;  // view, create, update, delete, export, import
+  string action_type = 7; // view, create, update, delete, export, import
   bool is_active = 8;
-  int32 role_count = 9;  // Number of roles with this permission
+  int32 role_count = 9; // Number of roles with this permission
   common.v1.AuditInfo audit = 10;
 }
 
@@ -284,13 +317,29 @@ message CreatePermissionRequest {
     max_len: 100
     pattern: "^[a-z][a-z0-9]*\\.[a-z][a-z0-9]*\\.[a-z][a-z0-9]*\\.[a-z]+$"
   }];
-  string permission_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+  string permission_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
   string description = 3 [(buf.validate.field).string.max_len = 500];
-  string service_name = 4 [(buf.validate.field).string = {min_len: 1, max_len: 50}];
-  string module_name = 5 [(buf.validate.field).string = {min_len: 1, max_len: 50}];
+  string service_name = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 50
+  }];
+  string module_name = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 50
+  }];
   // Action type: view, create, update, delete, export, import
   string action_type = 6 [(buf.validate.field).string = {
-    in: ["view", "create", "update", "delete", "export", "import"]
+    in: [
+      "view",
+      "create",
+      "update",
+      "delete",
+      "export",
+      "import"
+    ]
   }];
 }
 
@@ -330,7 +379,10 @@ message DeletePermissionResponse {
 
 message ListPermissionsRequest {
   int32 page = 1 [(buf.validate.field).int32.gte = 1];
-  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
   string search = 3 [(buf.validate.field).string.max_len = 100];
   ActiveFilter active_filter = 4;
   // Filter by service
@@ -339,10 +391,32 @@ message ListPermissionsRequest {
   string module_name = 6 [(buf.validate.field).string.max_len = 50];
   // Filter by action type
   string action_type = 7 [(buf.validate.field).string = {
-    in: ["", "view", "create", "update", "delete", "export", "import"]
+    in: [
+      "",
+      "view",
+      "create",
+      "update",
+      "delete",
+      "export",
+      "import"
+    ]
   }];
-  string sort_by = 8 [(buf.validate.field).string = {in: ["", "code", "name", "service_name", "created_at"]}];
-  string sort_order = 9 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+  string sort_by = 8 [(buf.validate.field).string = {
+    in: [
+      "",
+      "code",
+      "name",
+      "service_name",
+      "created_at"
+    ]
+  }];
+  string sort_order = 9 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
 }
 
 message ListPermissionsResponse {
@@ -364,9 +438,22 @@ message ExportPermissionsResponse {
 }
 
 message ImportPermissionsRequest {
-  bytes file_content = 1 [(buf.validate.field).bytes = {min_len: 1, max_len: 10485760}];
-  string file_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 255}];
-  string duplicate_action = 3 [(buf.validate.field).string = {in: ["skip", "update", "error"], min_len: 1}];
+  bytes file_content = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 10485760
+  }];
+  string file_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+  string duplicate_action = 3 [(buf.validate.field).string = {
+    in: [
+      "skip",
+      "update",
+      "error"
+    ]
+    min_len: 1
+  }];
 }
 
 message ImportPermissionsResponse {
