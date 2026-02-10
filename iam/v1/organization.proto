@@ -235,11 +235,27 @@ message DeleteCompanyResponse {
 
 message ListCompaniesRequest {
   int32 page = 1 [(buf.validate.field).int32.gte = 1];
-  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
   string search = 3 [(buf.validate.field).string.max_len = 100];
   ActiveFilter active_filter = 4;
-  string sort_by = 5 [(buf.validate.field).string = {in: ["", "code", "name", "created_at"]}];
-  string sort_order = 6 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+  string sort_by = 5 [(buf.validate.field).string = {
+    in: [
+      "",
+      "code",
+      "name",
+      "created_at"
+    ]
+  }];
+  string sort_order = 6 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
 }
 
 message ListCompaniesResponse {
@@ -259,9 +275,22 @@ message ExportCompaniesResponse {
 }
 
 message ImportCompaniesRequest {
-  bytes file_content = 1 [(buf.validate.field).bytes = {min_len: 1, max_len: 10485760}];
-  string file_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 255}];
-  string duplicate_action = 3 [(buf.validate.field).string = {in: ["skip", "update", "error"], min_len: 1}];
+  bytes file_content = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 10485760
+  }];
+  string file_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+  string duplicate_action = 3 [(buf.validate.field).string = {
+    in: [
+      "skip",
+      "update",
+      "error"
+    ]
+    min_len: 1
+  }];
 }
 
 message ImportCompaniesResponse {
@@ -306,7 +335,10 @@ message CreateDivisionRequest {
     max_len: 20
     pattern: "^[A-Z][A-Z0-9_]*$"
   }];
-  string division_name = 3 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+  string division_name = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
   string description = 4 [(buf.validate.field).string.max_len = 500];
 }
 
@@ -347,12 +379,28 @@ message DeleteDivisionResponse {
 
 message ListDivisionsRequest {
   int32 page = 1 [(buf.validate.field).int32.gte = 1];
-  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
   string search = 3 [(buf.validate.field).string.max_len = 100];
   ActiveFilter active_filter = 4;
   optional string company_id = 5 [(buf.validate.field).string.uuid = true];
-  string sort_by = 6 [(buf.validate.field).string = {in: ["", "code", "name", "created_at"]}];
-  string sort_order = 7 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+  string sort_by = 6 [(buf.validate.field).string = {
+    in: [
+      "",
+      "code",
+      "name",
+      "created_at"
+    ]
+  }];
+  string sort_order = 7 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
 }
 
 message ListDivisionsResponse {
@@ -373,9 +421,22 @@ message ExportDivisionsResponse {
 }
 
 message ImportDivisionsRequest {
-  bytes file_content = 1 [(buf.validate.field).bytes = {min_len: 1, max_len: 10485760}];
-  string file_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 255}];
-  string duplicate_action = 3 [(buf.validate.field).string = {in: ["skip", "update", "error"], min_len: 1}];
+  bytes file_content = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 10485760
+  }];
+  string file_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+  string duplicate_action = 3 [(buf.validate.field).string = {
+    in: [
+      "skip",
+      "update",
+      "error"
+    ]
+    min_len: 1
+  }];
 }
 
 message ImportDivisionsResponse {
@@ -420,7 +481,10 @@ message CreateDepartmentRequest {
     max_len: 20
     pattern: "^[A-Z][A-Z0-9_]*$"
   }];
-  string department_name = 3 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+  string department_name = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
   string description = 4 [(buf.validate.field).string.max_len = 500];
 }
 
@@ -461,13 +525,29 @@ message DeleteDepartmentResponse {
 
 message ListDepartmentsRequest {
   int32 page = 1 [(buf.validate.field).int32.gte = 1];
-  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
   string search = 3 [(buf.validate.field).string.max_len = 100];
   ActiveFilter active_filter = 4;
   optional string division_id = 5 [(buf.validate.field).string.uuid = true];
   optional string company_id = 6 [(buf.validate.field).string.uuid = true];
-  string sort_by = 7 [(buf.validate.field).string = {in: ["", "code", "name", "created_at"]}];
-  string sort_order = 8 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+  string sort_by = 7 [(buf.validate.field).string = {
+    in: [
+      "",
+      "code",
+      "name",
+      "created_at"
+    ]
+  }];
+  string sort_order = 8 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
 }
 
 message ListDepartmentsResponse {
@@ -489,9 +569,22 @@ message ExportDepartmentsResponse {
 }
 
 message ImportDepartmentsRequest {
-  bytes file_content = 1 [(buf.validate.field).bytes = {min_len: 1, max_len: 10485760}];
-  string file_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 255}];
-  string duplicate_action = 3 [(buf.validate.field).string = {in: ["skip", "update", "error"], min_len: 1}];
+  bytes file_content = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 10485760
+  }];
+  string file_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+  string duplicate_action = 3 [(buf.validate.field).string = {
+    in: [
+      "skip",
+      "update",
+      "error"
+    ]
+    min_len: 1
+  }];
 }
 
 message ImportDepartmentsResponse {
@@ -536,7 +629,10 @@ message CreateSectionRequest {
     max_len: 20
     pattern: "^[A-Z][A-Z0-9_]*$"
   }];
-  string section_name = 3 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+  string section_name = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
   string description = 4 [(buf.validate.field).string.max_len = 500];
 }
 
@@ -577,14 +673,30 @@ message DeleteSectionResponse {
 
 message ListSectionsRequest {
   int32 page = 1 [(buf.validate.field).int32.gte = 1];
-  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
   string search = 3 [(buf.validate.field).string.max_len = 100];
   ActiveFilter active_filter = 4;
   optional string department_id = 5 [(buf.validate.field).string.uuid = true];
   optional string division_id = 6 [(buf.validate.field).string.uuid = true];
   optional string company_id = 7 [(buf.validate.field).string.uuid = true];
-  string sort_by = 8 [(buf.validate.field).string = {in: ["", "code", "name", "created_at"]}];
-  string sort_order = 9 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+  string sort_by = 8 [(buf.validate.field).string = {
+    in: [
+      "",
+      "code",
+      "name",
+      "created_at"
+    ]
+  }];
+  string sort_order = 9 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
 }
 
 message ListSectionsResponse {
@@ -607,9 +719,22 @@ message ExportSectionsResponse {
 }
 
 message ImportSectionsRequest {
-  bytes file_content = 1 [(buf.validate.field).bytes = {min_len: 1, max_len: 10485760}];
-  string file_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 255}];
-  string duplicate_action = 3 [(buf.validate.field).string = {in: ["skip", "update", "error"], min_len: 1}];
+  bytes file_content = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 10485760
+  }];
+  string file_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+  string duplicate_action = 3 [(buf.validate.field).string = {
+    in: [
+      "skip",
+      "update",
+      "error"
+    ]
+    min_len: 1
+  }];
 }
 
 message ImportSectionsResponse {

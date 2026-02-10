@@ -92,9 +92,9 @@ service MenuService {
 // MenuLevel represents the hierarchy level of a menu.
 enum MenuLevel {
   MENU_LEVEL_UNSPECIFIED = 0;
-  MENU_LEVEL_ROOT = 1;    // Level 1: Root menu (e.g., Dashboard, Finance)
-  MENU_LEVEL_PARENT = 2;  // Level 2: Parent menu (e.g., Master, Transaction)
-  MENU_LEVEL_CHILD = 3;   // Level 3: Child menu (e.g., UOM, Parameter)
+  MENU_LEVEL_ROOT = 1; // Level 1: Root menu (e.g., Dashboard, Finance)
+  MENU_LEVEL_PARENT = 2; // Level 2: Parent menu (e.g., Master, Transaction)
+  MENU_LEVEL_CHILD = 3; // Level 3: Child menu (e.g., UOM, Parameter)
 }
 
 // Menu represents a menu entity.
@@ -146,13 +146,22 @@ message CreateMenuRequest {
     pattern: "^[A-Z][A-Z0-9_]*$"
   }];
   // Display title.
-  string menu_title = 3 [(buf.validate.field).string = {min_len: 1, max_len: 100}];
+  string menu_title = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
   // Route URL path (optional for parent-only menus).
   optional string menu_url = 4 [(buf.validate.field).string.max_len = 255];
   // Lucide icon name.
-  string icon_name = 5 [(buf.validate.field).string = {min_len: 1, max_len: 50}];
+  string icon_name = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 50
+  }];
   // Service name.
-  string service_name = 6 [(buf.validate.field).string = {min_len: 1, max_len: 50}];
+  string service_name = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 50
+  }];
   // Menu level (must match parent hierarchy).
   MenuLevel menu_level = 7 [(buf.validate.field).enum = {
     defined_only: true
@@ -211,7 +220,10 @@ message DeleteMenuResponse {
 
 message ListMenusRequest {
   int32 page = 1 [(buf.validate.field).int32.gte = 1];
-  int32 page_size = 2 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
   string search = 3 [(buf.validate.field).string.max_len = 100];
   ActiveFilter active_filter = 4;
   // Filter by visibility.
@@ -222,8 +234,22 @@ message ListMenusRequest {
   MenuLevel menu_level = 7;
   // Filter by parent ID (null/unset for root only).
   optional string parent_id = 8 [(buf.validate.field).string.uuid = true];
-  string sort_by = 9 [(buf.validate.field).string = {in: ["", "code", "title", "sort_order", "created_at"]}];
-  string sort_order = 10 [(buf.validate.field).string = {in: ["", "asc", "desc"]}];
+  string sort_by = 9 [(buf.validate.field).string = {
+    in: [
+      "",
+      "code",
+      "title",
+      "sort_order",
+      "created_at"
+    ]
+  }];
+  string sort_order = 10 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
 }
 
 message ListMenusResponse {
@@ -245,9 +271,22 @@ message ExportMenusResponse {
 }
 
 message ImportMenusRequest {
-  bytes file_content = 1 [(buf.validate.field).bytes = {min_len: 1, max_len: 10485760}];
-  string file_name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 255}];
-  string duplicate_action = 3 [(buf.validate.field).string = {in: ["skip", "update", "error"], min_len: 1}];
+  bytes file_content = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 10485760
+  }];
+  string file_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+  string duplicate_action = 3 [(buf.validate.field).string = {
+    in: [
+      "skip",
+      "update",
+      "error"
+    ]
+    min_len: 1
+  }];
 }
 
 message ImportMenusResponse {
