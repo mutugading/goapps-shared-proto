@@ -64,9 +64,15 @@ goapps-shared-proto/
 │   └── v1/
 │       └── uom.proto             # UOM service (CRUD, Import, Export)
 │
-├── 📁 iam/                       # IAM domain (future)
+├── 📁 iam/                       # IAM domain (fully implemented)
 │   └── v1/
-│       └── ...                   # User, Role, Permission
+│       ├── auth.proto            # AuthService (11 RPCs): Login, Logout, 2FA, Password reset
+│       ├── user.proto            # UserService (16 RPCs): CRUD, roles, permissions, avatar
+│       ├── role.proto            # RoleService (11 RPCs) + PermissionService (11 RPCs)
+│       ├── organization.proto    # Company/Division/Department/Section (33 RPCs)
+│       ├── menu.proto            # MenuService (11 RPCs): hierarchical 3-level menu
+│       ├── session.proto         # SessionService (3 RPCs): session tracking
+│       └── audit.proto           # AuditService (4 RPCs): event logging
 │
 ├── 📁 scripts/
 │   ├── gen-go.sh                 # Generate Go code
