@@ -1,0 +1,310 @@
+syntax = "proto3";
+
+package finance.v1;
+
+// Note: go_package is managed by buf.gen.yaml managed mode
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "finance/v1/uom.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// MESSAGES - Entity
+// =============================================================================
+
+// RMCategory represents a Raw Material Category entity.
+// Used to classify raw materials (e.g., Chips, Oil, Dyes, Chemicals).
+message RMCategory {
+  // Unique identifier (UUID).
+  string rm_category_id = 1;
+  // Unique code (e.g., "CHIP", "OIL", "DYES"). Immutable after creation.
+  string category_code = 2;
+  // Display name (e.g., "Chips", "Oil", "Dyes").
+  string category_name = 3;
+  // Optional description.
+  string description = 4;
+  // Whether the category is active.
+  bool is_active = 5;
+  // Audit information.
+  common.v1.AuditInfo audit = 16;
+}
+
+// =============================================================================
+// MESSAGES - Create
+// =============================================================================
+
+// CreateRMCategoryRequest is the request for creating a new raw material category.
+message CreateRMCategoryRequest {
+  // Unique code (uppercase, alphanumeric with underscore, 1-20 chars).
+  // Must start with an uppercase letter. Immutable after creation.
+  string category_code = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 20
+    pattern: "^[A-Z][A-Z0-9_]*$"
+  }];
+  // Display name (1-100 chars).
+  string category_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+  // Optional description (max 500 chars).
+  string description = 3 [(buf.validate.field).string.max_len = 500];
+}
+
+// CreateRMCategoryResponse is the response for creating a raw material category.
+message CreateRMCategoryResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Created raw material category data.
+  RMCategory data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Get
+// =============================================================================
+
+// GetRMCategoryRequest is the request for getting a raw material category by ID.
+message GetRMCategoryRequest {
+  // Raw material category ID (UUID format).
+  string rm_category_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// GetRMCategoryResponse is the response for getting a raw material category.
+message GetRMCategoryResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Raw material category data.
+  RMCategory data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Update
+// =============================================================================
+
+// UpdateRMCategoryRequest is the request for updating a raw material category.
+// Note: category_code is immutable and cannot be changed after creation.
+message UpdateRMCategoryRequest {
+  // Raw material category ID to update (UUID format).
+  string rm_category_id = 1 [(buf.validate.field).string.uuid = true];
+  // New display name (optional, 1-100 chars if provided).
+  optional string category_name = 2 [(buf.validate.field).string = {max_len: 100}];
+  // New description (optional, max 500 chars).
+  optional string description = 3 [(buf.validate.field).string.max_len = 500];
+  // New active status (optional).
+  optional bool is_active = 4;
+}
+
+// UpdateRMCategoryResponse is the response for updating a raw material category.
+message UpdateRMCategoryResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Updated raw material category data.
+  RMCategory data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Delete
+// =============================================================================
+
+// DeleteRMCategoryRequest is the request for deleting (soft delete) a raw material category.
+message DeleteRMCategoryRequest {
+  // Raw material category ID to delete (UUID format).
+  string rm_category_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// DeleteRMCategoryResponse is the response for deleting a raw material category.
+message DeleteRMCategoryResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// =============================================================================
+// MESSAGES - List with Search & Filter
+// =============================================================================
+
+// ListRMCategoriesRequest is the request for listing raw material categories
+// with search, filter, and pagination.
+message ListRMCategoriesRequest {
+  // Page number (1-indexed, default 1, min 1).
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  // Items per page (1-100, default 10).
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
+  // Search query (searches in code, name, description).
+  string search = 3 [(buf.validate.field).string.max_len = 100];
+  // Filter by active status.
+  // ACTIVE_FILTER_UNSPECIFIED (0) = show all, ACTIVE_FILTER_ACTIVE (1) = only active,
+  // ACTIVE_FILTER_INACTIVE (2) = only inactive.
+  ActiveFilter active_filter = 4;
+  // Sort field: "code", "name", "created_at" (default: "code").
+  string sort_by = 5 [(buf.validate.field).string = {
+    in: [
+      "",
+      "code",
+      "name",
+      "created_at"
+    ]
+  }];
+  // Sort order: "asc", "desc" (default: "asc").
+  string sort_order = 6 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
+}
+
+// ListRMCategoriesResponse is the response for listing raw material categories.
+message ListRMCategoriesResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // List of raw material categories.
+  repeated RMCategory data = 2;
+  // Pagination metadata.
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// =============================================================================
+// MESSAGES - Excel Export
+// =============================================================================
+
+// ExportRMCategoriesRequest is the request for exporting raw material categories to Excel.
+message ExportRMCategoriesRequest {
+  // Filter by active status.
+  // ACTIVE_FILTER_UNSPECIFIED (0) = export all, ACTIVE_FILTER_ACTIVE (1) = only active,
+  // ACTIVE_FILTER_INACTIVE (2) = only inactive.
+  ActiveFilter active_filter = 1;
+}
+
+// ExportRMCategoriesResponse is the response containing the Excel file.
+message ExportRMCategoriesResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Excel file content as bytes (.xlsx format).
+  bytes file_content = 2;
+  // Suggested filename.
+  string file_name = 3;
+}
+
+// =============================================================================
+// MESSAGES - Excel Import
+// =============================================================================
+
+// ImportRMCategoriesRequest is the request for importing raw material categories from Excel.
+message ImportRMCategoriesRequest {
+  // Excel file content as bytes (.xlsx or .xls format).
+  bytes file_content = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 10485760
+  }];
+  // Original filename (for format detection).
+  // Must be a simple filename without path separators.
+  string file_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+    pattern: "^[^/\\\\]+\\.(xlsx|xls)$"
+  }];
+  // Required. How to handle duplicates: "skip", "update", "error".
+  string duplicate_action = 3 [(buf.validate.field).string = {
+    in: [
+      "skip",
+      "update",
+      "error"
+    ]
+    min_len: 1
+  }];
+}
+
+// ImportRMCategoriesResponse is the response for importing raw material categories.
+message ImportRMCategoriesResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Number of successfully imported records.
+  int32 success_count = 2;
+  // Number of skipped records (duplicates with skip action).
+  int32 skipped_count = 3;
+  // Number of updated records (duplicates with update action).
+  int32 updated_count = 4;
+  // Number of failed records.
+  int32 failed_count = 5;
+  // Details of failed records.
+  repeated ImportError errors = 6;
+}
+
+// =============================================================================
+// MESSAGES - Download Template
+// =============================================================================
+
+// DownloadRMCategoryTemplateRequest is the request for downloading the import template.
+message DownloadRMCategoryTemplateRequest {}
+
+// DownloadRMCategoryTemplateResponse is the response containing the template file.
+message DownloadRMCategoryTemplateResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Excel template file content as bytes (.xlsx format).
+  bytes file_content = 2;
+  // Suggested filename.
+  string file_name = 3;
+}
+
+// =============================================================================
+// SERVICE DEFINITION
+// =============================================================================
+
+// RMCategoryService provides CRUD operations for Raw Material Category master data.
+service RMCategoryService {
+  // CreateRMCategory creates a new raw material category.
+  rpc CreateRMCategory(CreateRMCategoryRequest) returns (CreateRMCategoryResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/rm-categories"
+      body: "*"
+    };
+  }
+
+  // GetRMCategory retrieves a raw material category by ID.
+  rpc GetRMCategory(GetRMCategoryRequest) returns (GetRMCategoryResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/rm-categories/{rm_category_id}"};
+  }
+
+  // UpdateRMCategory updates an existing raw material category.
+  // Note: category_code is immutable and cannot be changed.
+  rpc UpdateRMCategory(UpdateRMCategoryRequest) returns (UpdateRMCategoryResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/finance/rm-categories/{rm_category_id}"
+      body: "*"
+    };
+  }
+
+  // DeleteRMCategory soft deletes a raw material category.
+  rpc DeleteRMCategory(DeleteRMCategoryRequest) returns (DeleteRMCategoryResponse) {
+    option (google.api.http) = {delete: "/api/v1/finance/rm-categories/{rm_category_id}"};
+  }
+
+  // ListRMCategories lists raw material categories with search, filter, and pagination.
+  rpc ListRMCategories(ListRMCategoriesRequest) returns (ListRMCategoriesResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/rm-categories"};
+  }
+
+  // ExportRMCategories exports raw material categories to Excel file.
+  rpc ExportRMCategories(ExportRMCategoriesRequest) returns (ExportRMCategoriesResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/rm-categories/export"};
+  }
+
+  // ImportRMCategories imports raw material categories from Excel file.
+  rpc ImportRMCategories(ImportRMCategoriesRequest) returns (ImportRMCategoriesResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/rm-categories/import"
+      body: "*"
+    };
+  }
+
+  // DownloadRMCategoryTemplate downloads the Excel import template.
+  rpc DownloadRMCategoryTemplate(DownloadRMCategoryTemplateRequest) returns (DownloadRMCategoryTemplateResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/rm-categories/template"};
+  }
+}
