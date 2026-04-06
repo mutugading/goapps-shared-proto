@@ -1,0 +1,396 @@
+syntax = "proto3";
+
+package finance.v1;
+
+// Note: go_package is managed by buf.gen.yaml managed mode
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "finance/v1/uom.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+// DataType represents the data type of a parameter value.
+enum DataType {
+  // Default unspecified value - used as "no filter" in list/export requests.
+  DATA_TYPE_UNSPECIFIED = 0;
+  // Numeric values (integer or decimal).
+  DATA_TYPE_NUMBER = 1;
+  // Text/string values.
+  DATA_TYPE_TEXT = 2;
+  // Boolean (true/false) values.
+  DATA_TYPE_BOOLEAN = 3;
+}
+
+// ParamCategory represents the category/purpose of a parameter.
+enum ParamCategory {
+  // Default unspecified value - used as "no filter" in list/export requests.
+  PARAM_CATEGORY_UNSPECIFIED = 0;
+  // Input parameter - manually entered values.
+  PARAM_CATEGORY_INPUT = 1;
+  // Rate parameter - rate/ratio values.
+  PARAM_CATEGORY_RATE = 2;
+  // Calculated parameter - computed from other parameters.
+  PARAM_CATEGORY_CALCULATED = 3;
+}
+
+// =============================================================================
+// MESSAGES - Entity
+// =============================================================================
+
+// Parameter represents a master parameter entity for costing calculations.
+message Parameter {
+  // Unique identifier (UUID).
+  string param_id = 1;
+  // Unique code (e.g., "SPEED", "DENIER", "ELEC_RATE"). Immutable after creation.
+  string param_code = 2;
+  // Display name (e.g., "Speed", "Denier").
+  string param_name = 3;
+  // Short name for compact display.
+  string param_short_name = 4;
+  // Data type of the parameter value.
+  DataType data_type = 5;
+  // Category/purpose of the parameter.
+  ParamCategory param_category = 6;
+  // Default value (decimal, as string for precision).
+  string default_value = 7;
+  // Minimum allowed value (decimal, as string for precision).
+  string min_value = 8;
+  // Maximum allowed value (decimal, as string for precision).
+  string max_value = 9;
+  // Whether the parameter is active.
+  bool is_active = 10;
+  // Audit information.
+  common.v1.AuditInfo audit = 16;
+  // Optional UOM reference ID (UUID, nullable).
+  string uom_id = 21;
+  // Resolved UOM code (read-only, populated from mst_uom join).
+  string uom_code = 22;
+  // Resolved UOM name (read-only, populated from mst_uom join).
+  string uom_name = 23;
+}
+
+// =============================================================================
+// MESSAGES - Create
+// =============================================================================
+
+// CreateParameterRequest is the request for creating a new parameter.
+message CreateParameterRequest {
+  // Unique code (uppercase, alphanumeric with underscore, 1-20 chars).
+  // Must start with an uppercase letter. Immutable after creation.
+  string param_code = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 20
+    pattern: "^[A-Z][A-Z0-9_]*$"
+  }];
+  // Display name (1-200 chars).
+  string param_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  // Short name (optional, max 50 chars).
+  string param_short_name = 3 [(buf.validate.field).string.max_len = 50];
+  // Data type (required, cannot be UNSPECIFIED).
+  DataType data_type = 4 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  // Category (required, cannot be UNSPECIFIED).
+  ParamCategory param_category = 5 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  // Optional UOM reference (UUID format, empty string means no UOM).
+  string uom_id = 6 [(buf.validate.field) = {
+    ignore: IGNORE_IF_ZERO_VALUE
+    string: {uuid: true}
+  }];
+  // Default value (optional, decimal as string).
+  string default_value = 7 [(buf.validate.field).string.max_len = 50];
+  // Minimum value (optional, decimal as string).
+  string min_value = 8 [(buf.validate.field).string.max_len = 50];
+  // Maximum value (optional, decimal as string).
+  string max_value = 9 [(buf.validate.field).string.max_len = 50];
+}
+
+// CreateParameterResponse is the response for creating a parameter.
+message CreateParameterResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Created parameter data.
+  Parameter data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Get
+// =============================================================================
+
+// GetParameterRequest is the request for getting a parameter by ID.
+message GetParameterRequest {
+  // Parameter ID (UUID format).
+  string param_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// GetParameterResponse is the response for getting a parameter.
+message GetParameterResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Parameter data.
+  Parameter data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Update
+// =============================================================================
+
+// UpdateParameterRequest is the request for updating a parameter.
+// Note: param_code is immutable and cannot be changed after creation.
+message UpdateParameterRequest {
+  // Parameter ID to update (UUID format).
+  string param_id = 1 [(buf.validate.field).string.uuid = true];
+  // New display name (optional, 1-200 chars if provided).
+  optional string param_name = 2 [(buf.validate.field).string = {max_len: 200}];
+  // New short name (optional, max 50 chars).
+  optional string param_short_name = 3 [(buf.validate.field).string.max_len = 50];
+  // New data type (optional, cannot be UNSPECIFIED if provided).
+  optional DataType data_type = 4 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  // New category (optional, cannot be UNSPECIFIED if provided).
+  optional ParamCategory param_category = 5 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  // New UOM reference (optional, UUID format, empty string to clear).
+  optional string uom_id = 6;
+  // New default value (optional).
+  optional string default_value = 7;
+  // New minimum value (optional).
+  optional string min_value = 8;
+  // New maximum value (optional).
+  optional string max_value = 9;
+  // New active status (optional).
+  optional bool is_active = 10;
+}
+
+// UpdateParameterResponse is the response for updating a parameter.
+message UpdateParameterResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Updated parameter data.
+  Parameter data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Delete
+// =============================================================================
+
+// DeleteParameterRequest is the request for deleting (soft delete) a parameter.
+message DeleteParameterRequest {
+  // Parameter ID to delete (UUID format).
+  string param_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// DeleteParameterResponse is the response for deleting a parameter.
+message DeleteParameterResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// =============================================================================
+// MESSAGES - List with Search & Filter
+// =============================================================================
+
+// ListParametersRequest is the request for listing parameters with search, filter, and pagination.
+message ListParametersRequest {
+  // Page number (1-indexed, default 1, min 1).
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  // Items per page (1-100, default 10).
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
+  // Search query (searches in code, name, short_name).
+  string search = 3 [(buf.validate.field).string.max_len = 100];
+  // Filter by data type.
+  // DATA_TYPE_UNSPECIFIED (0) means "show all data types" (no filter).
+  DataType data_type = 4;
+  // Filter by category.
+  // PARAM_CATEGORY_UNSPECIFIED (0) means "show all categories" (no filter).
+  ParamCategory param_category = 5;
+  // Filter by active status.
+  // ACTIVE_FILTER_UNSPECIFIED (0) = show all, ACTIVE_FILTER_ACTIVE (1) = only active,
+  // ACTIVE_FILTER_INACTIVE (2) = only inactive.
+  ActiveFilter active_filter = 6;
+  // Sort field: "code", "name", "category", "data_type", "created_at" (default: "code").
+  string sort_by = 7 [(buf.validate.field).string = {
+    in: [
+      "",
+      "code",
+      "name",
+      "category",
+      "data_type",
+      "created_at"
+    ]
+  }];
+  // Sort order: "asc", "desc" (default: "asc").
+  string sort_order = 8 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
+}
+
+// ListParametersResponse is the response for listing parameters.
+message ListParametersResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // List of parameters.
+  repeated Parameter data = 2;
+  // Pagination metadata.
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// =============================================================================
+// MESSAGES - Excel Export
+// =============================================================================
+
+// ExportParametersRequest is the request for exporting parameters to Excel.
+message ExportParametersRequest {
+  // Filter by data type.
+  DataType data_type = 1;
+  // Filter by category.
+  ParamCategory param_category = 2;
+  // Filter by active status.
+  ActiveFilter active_filter = 3;
+}
+
+// ExportParametersResponse is the response containing the Excel file.
+message ExportParametersResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Excel file content as bytes (.xlsx format).
+  bytes file_content = 2;
+  // Suggested filename.
+  string file_name = 3;
+}
+
+// =============================================================================
+// MESSAGES - Excel Import
+// =============================================================================
+
+// ImportParametersRequest is the request for importing parameters from Excel.
+message ImportParametersRequest {
+  // Excel file content as bytes (.xlsx or .xls format).
+  bytes file_content = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 10485760
+  }];
+  // Original filename (for format detection).
+  string file_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+    pattern: "^[^/\\\\]+\\.(xlsx|xls)$"
+  }];
+  // Required. How to handle duplicates: "skip", "update", "error".
+  string duplicate_action = 3 [(buf.validate.field).string = {
+    in: [
+      "skip",
+      "update",
+      "error"
+    ]
+    min_len: 1
+  }];
+}
+
+// ImportParametersResponse is the response for importing parameters.
+message ImportParametersResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Number of successfully imported records.
+  int32 success_count = 2;
+  // Number of skipped records (duplicates with skip action).
+  int32 skipped_count = 3;
+  // Number of updated records (duplicates with update action).
+  int32 updated_count = 4;
+  // Number of failed records.
+  int32 failed_count = 5;
+  // Details of failed records.
+  repeated ImportError errors = 6;
+}
+
+// =============================================================================
+// MESSAGES - Download Template
+// =============================================================================
+
+// DownloadParameterTemplateRequest is the request for downloading the import template.
+message DownloadParameterTemplateRequest {}
+
+// DownloadParameterTemplateResponse is the response containing the template file.
+message DownloadParameterTemplateResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Excel template file content as bytes (.xlsx format).
+  bytes file_content = 2;
+  // Suggested filename.
+  string file_name = 3;
+}
+
+// =============================================================================
+// SERVICE DEFINITION
+// =============================================================================
+
+// ParameterService provides CRUD operations for Parameter master data.
+service ParameterService {
+  // CreateParameter creates a new parameter.
+  rpc CreateParameter(CreateParameterRequest) returns (CreateParameterResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/parameters"
+      body: "*"
+    };
+  }
+
+  // GetParameter retrieves a parameter by ID.
+  rpc GetParameter(GetParameterRequest) returns (GetParameterResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/parameters/{param_id}"};
+  }
+
+  // UpdateParameter updates an existing parameter.
+  // Note: param_code is immutable and cannot be changed.
+  rpc UpdateParameter(UpdateParameterRequest) returns (UpdateParameterResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/finance/parameters/{param_id}"
+      body: "*"
+    };
+  }
+
+  // DeleteParameter soft deletes a parameter.
+  rpc DeleteParameter(DeleteParameterRequest) returns (DeleteParameterResponse) {
+    option (google.api.http) = {delete: "/api/v1/finance/parameters/{param_id}"};
+  }
+
+  // ListParameters lists parameters with search, filter, and pagination.
+  rpc ListParameters(ListParametersRequest) returns (ListParametersResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/parameters"};
+  }
+
+  // ExportParameters exports parameters to Excel file.
+  rpc ExportParameters(ExportParametersRequest) returns (ExportParametersResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/parameters/export"};
+  }
+
+  // ImportParameters imports parameters from Excel file.
+  rpc ImportParameters(ImportParametersRequest) returns (ImportParametersResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/parameters/import"
+      body: "*"
+    };
+  }
+
+  // DownloadParameterTemplate downloads the Excel import template.
+  rpc DownloadParameterTemplate(DownloadParameterTemplateRequest) returns (DownloadParameterTemplateResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/parameters/template"};
+  }
+}
