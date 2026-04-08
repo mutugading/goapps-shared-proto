@@ -156,7 +156,7 @@ message UpdateFormulaRequest {
   // New expression (optional, 1-5000 chars if provided).
   optional string expression = 4 [(buf.validate.field).string = {max_len: 5000}];
   // New result parameter ID (optional, UUID).
-  optional string result_param_id = 5;
+  optional string result_param_id = 5 [(buf.validate.field).string.uuid = true];
   // New input parameter IDs (optional, replaces all existing).
   repeated string input_param_ids = 6 [(buf.validate.field).repeated = {
     max_items: 50
@@ -164,8 +164,8 @@ message UpdateFormulaRequest {
       string: {uuid: true}
     }
   }];
-  // New description (optional).
-  optional string description = 7;
+  // New description (optional, max 1000 chars).
+  optional string description = 7 [(buf.validate.field).string.max_len = 1000];
   // New active status (optional).
   optional bool is_active = 8;
 }
