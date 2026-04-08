@@ -1,0 +1,386 @@
+syntax = "proto3";
+
+package finance.v1;
+
+// Note: go_package is managed by buf.gen.yaml managed mode
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "finance/v1/uom.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+// FormulaType represents the type of a formula expression.
+enum FormulaType {
+  // Default unspecified value - used as "no filter" in list/export requests.
+  FORMULA_TYPE_UNSPECIFIED = 0;
+  // Mathematical calculation using parameter codes (e.g., "ELEC_CONSUMPTION * ELEC_RATE").
+  FORMULA_TYPE_CALCULATION = 1;
+  // SQL query to fetch data from other tables.
+  FORMULA_TYPE_SQL_QUERY = 2;
+  // Constant value (no calculation).
+  FORMULA_TYPE_CONSTANT = 3;
+}
+
+// =============================================================================
+// MESSAGES - Entity
+// =============================================================================
+
+// FormulaParam represents an input parameter reference within a formula.
+message FormulaParam {
+  // Unique identifier (UUID).
+  string formula_param_id = 1;
+  // Parameter ID reference (UUID).
+  string param_id = 2;
+  // Resolved parameter code (read-only, from join).
+  string param_code = 3;
+  // Resolved parameter name (read-only, from join).
+  string param_name = 4;
+  // Display order of the parameter in the formula.
+  int32 sort_order = 5;
+}
+
+// Formula represents a master formula entity for costing calculations.
+message Formula {
+  // Unique identifier (UUID).
+  string formula_id = 1;
+  // Unique code (e.g., "COST_ELEC_STD"). Immutable after creation.
+  string formula_code = 2;
+  // Display name (e.g., "Electricity Cost Standard").
+  string formula_name = 3;
+  // Type of formula expression.
+  FormulaType formula_type = 4;
+  // Expression text (e.g., "ELEC_CONSUMPTION * ELEC_RATE" or SQL query).
+  string expression = 5;
+  // Result/output parameter ID (UUID FK to mst_parameter).
+  string result_param_id = 6;
+  // Resolved result parameter code (read-only, from join).
+  string result_param_code = 7;
+  // Resolved result parameter name (read-only, from join).
+  string result_param_name = 8;
+  // Optional description.
+  string description = 9;
+  // Formula version number.
+  int32 version = 10;
+  // Whether the formula is active.
+  bool is_active = 11;
+  // Audit information.
+  common.v1.AuditInfo audit = 16;
+  // Input parameters (from junction table).
+  repeated FormulaParam input_params = 21;
+}
+
+// =============================================================================
+// MESSAGES - Create
+// =============================================================================
+
+// CreateFormulaRequest is the request for creating a new formula.
+message CreateFormulaRequest {
+  // Unique code (uppercase, alphanumeric with underscore, 1-50 chars).
+  string formula_code = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 50
+    pattern: "^[A-Z][A-Z0-9_]*$"
+  }];
+  // Display name (1-200 chars).
+  string formula_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  // Formula type (required, cannot be UNSPECIFIED).
+  FormulaType formula_type = 3 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  // Expression (required, 1-5000 chars).
+  string expression = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 5000
+  }];
+  // Result parameter ID (UUID, required).
+  string result_param_id = 5 [(buf.validate.field).string.uuid = true];
+  // Input parameter IDs (at least 1 for CALCULATION type).
+  repeated string input_param_ids = 6 [(buf.validate.field).repeated = {
+    max_items: 50
+    items: {
+      string: {uuid: true}
+    }
+  }];
+  // Optional description (max 1000 chars).
+  string description = 7 [(buf.validate.field).string.max_len = 1000];
+}
+
+// CreateFormulaResponse is the response for creating a formula.
+message CreateFormulaResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Created formula data.
+  Formula data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Get
+// =============================================================================
+
+// GetFormulaRequest is the request for getting a formula by ID.
+message GetFormulaRequest {
+  // Formula ID (UUID format).
+  string formula_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// GetFormulaResponse is the response for getting a formula.
+message GetFormulaResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Formula data.
+  Formula data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Update
+// =============================================================================
+
+// UpdateFormulaRequest is the request for updating a formula.
+// Note: formula_code is immutable and cannot be changed after creation.
+message UpdateFormulaRequest {
+  // Formula ID to update (UUID format).
+  string formula_id = 1 [(buf.validate.field).string.uuid = true];
+  // New display name (optional, 1-200 chars if provided).
+  optional string formula_name = 2 [(buf.validate.field).string = {max_len: 200}];
+  // New formula type (optional).
+  optional FormulaType formula_type = 3 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  // New expression (optional, 1-5000 chars if provided).
+  optional string expression = 4 [(buf.validate.field).string = {max_len: 5000}];
+  // New result parameter ID (optional, UUID).
+  optional string result_param_id = 5;
+  // New input parameter IDs (optional, replaces all existing).
+  repeated string input_param_ids = 6 [(buf.validate.field).repeated = {
+    max_items: 50
+    items: {
+      string: {uuid: true}
+    }
+  }];
+  // New description (optional).
+  optional string description = 7;
+  // New active status (optional).
+  optional bool is_active = 8;
+}
+
+// UpdateFormulaResponse is the response for updating a formula.
+message UpdateFormulaResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Updated formula data.
+  Formula data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Delete
+// =============================================================================
+
+// DeleteFormulaRequest is the request for deleting (soft delete) a formula.
+message DeleteFormulaRequest {
+  // Formula ID to delete (UUID format).
+  string formula_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// DeleteFormulaResponse is the response for deleting a formula.
+message DeleteFormulaResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// =============================================================================
+// MESSAGES - List with Search & Filter
+// =============================================================================
+
+// ListFormulasRequest is the request for listing formulas with search, filter, and pagination.
+message ListFormulasRequest {
+  // Page number (1-indexed, default 1, min 1).
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  // Items per page (1-100, default 10).
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
+  // Search query (searches in code, name, expression).
+  string search = 3 [(buf.validate.field).string.max_len = 100];
+  // Filter by formula type.
+  // FORMULA_TYPE_UNSPECIFIED (0) means "show all types" (no filter).
+  FormulaType formula_type = 4;
+  // Filter by active status.
+  ActiveFilter active_filter = 5;
+  // Sort field: "code", "name", "type", "version", "created_at" (default: "code").
+  string sort_by = 6 [(buf.validate.field).string = {
+    in: [
+      "",
+      "code",
+      "name",
+      "type",
+      "version",
+      "created_at"
+    ]
+  }];
+  // Sort order: "asc", "desc" (default: "asc").
+  string sort_order = 7 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
+}
+
+// ListFormulasResponse is the response for listing formulas.
+message ListFormulasResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // List of formulas.
+  repeated Formula data = 2;
+  // Pagination metadata.
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// =============================================================================
+// MESSAGES - Excel Export
+// =============================================================================
+
+// ExportFormulasRequest is the request for exporting formulas to Excel.
+message ExportFormulasRequest {
+  // Filter by formula type.
+  FormulaType formula_type = 1;
+  // Filter by active status.
+  ActiveFilter active_filter = 2;
+}
+
+// ExportFormulasResponse is the response containing the Excel file.
+message ExportFormulasResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Excel file content as bytes (.xlsx format).
+  bytes file_content = 2;
+  // Suggested filename.
+  string file_name = 3;
+}
+
+// =============================================================================
+// MESSAGES - Excel Import
+// =============================================================================
+
+// ImportFormulasRequest is the request for importing formulas from Excel.
+message ImportFormulasRequest {
+  // Excel file content as bytes (.xlsx or .xls format).
+  bytes file_content = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 10485760
+  }];
+  // Original filename (for format detection).
+  string file_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+    pattern: "^[^/\\\\]+\\.(xlsx|xls)$"
+  }];
+  // Required. How to handle duplicates: "skip", "update", "error".
+  string duplicate_action = 3 [(buf.validate.field).string = {
+    in: [
+      "skip",
+      "update",
+      "error"
+    ]
+    min_len: 1
+  }];
+}
+
+// ImportFormulasResponse is the response for importing formulas.
+message ImportFormulasResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Number of successfully imported records.
+  int32 success_count = 2;
+  // Number of skipped records (duplicates with skip action).
+  int32 skipped_count = 3;
+  // Number of updated records (duplicates with update action).
+  int32 updated_count = 4;
+  // Number of failed records.
+  int32 failed_count = 5;
+  // Details of failed records.
+  repeated ImportError errors = 6;
+}
+
+// =============================================================================
+// MESSAGES - Download Template
+// =============================================================================
+
+// DownloadFormulaTemplateRequest is the request for downloading the import template.
+message DownloadFormulaTemplateRequest {}
+
+// DownloadFormulaTemplateResponse is the response containing the template file.
+message DownloadFormulaTemplateResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Excel template file content as bytes (.xlsx format).
+  bytes file_content = 2;
+  // Suggested filename.
+  string file_name = 3;
+}
+
+// =============================================================================
+// SERVICE DEFINITION
+// =============================================================================
+
+// FormulaService provides CRUD operations for Formula master data.
+service FormulaService {
+  // CreateFormula creates a new formula.
+  rpc CreateFormula(CreateFormulaRequest) returns (CreateFormulaResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/formulas"
+      body: "*"
+    };
+  }
+
+  // GetFormula retrieves a formula by ID.
+  rpc GetFormula(GetFormulaRequest) returns (GetFormulaResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/formulas/{formula_id}"};
+  }
+
+  // UpdateFormula updates an existing formula.
+  // Note: formula_code is immutable and cannot be changed.
+  rpc UpdateFormula(UpdateFormulaRequest) returns (UpdateFormulaResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/finance/formulas/{formula_id}"
+      body: "*"
+    };
+  }
+
+  // DeleteFormula soft deletes a formula.
+  rpc DeleteFormula(DeleteFormulaRequest) returns (DeleteFormulaResponse) {
+    option (google.api.http) = {delete: "/api/v1/finance/formulas/{formula_id}"};
+  }
+
+  // ListFormulas lists formulas with search, filter, and pagination.
+  rpc ListFormulas(ListFormulasRequest) returns (ListFormulasResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/formulas"};
+  }
+
+  // ExportFormulas exports formulas to Excel file.
+  rpc ExportFormulas(ExportFormulasRequest) returns (ExportFormulasResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/formulas/export"};
+  }
+
+  // ImportFormulas imports formulas from Excel file.
+  rpc ImportFormulas(ImportFormulasRequest) returns (ImportFormulasResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/formulas/import"
+      body: "*"
+    };
+  }
+
+  // DownloadFormulaTemplate downloads the Excel import template.
+  rpc DownloadFormulaTemplate(DownloadFormulaTemplateRequest) returns (DownloadFormulaTemplateResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/formulas/template"};
+  }
+}
