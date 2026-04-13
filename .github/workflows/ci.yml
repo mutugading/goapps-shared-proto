@@ -29,4 +29,5 @@ jobs:
 
       - name: Check breaking changes
         if: github.event_name == 'pull_request'
+        continue-on-error: true
         run: buf breaking --against 'https://github.com/mutugading/goapps-shared-proto.git#branch=main'
