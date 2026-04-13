@@ -13,20 +13,6 @@ import "google/api/annotations.proto";
 // ENUMS
 // =============================================================================
 
-// UOMCategory represents the category of a unit of measure.
-enum UOMCategory {
-  // Default unspecified value - used as "no filter" in list/export requests.
-  UOM_CATEGORY_UNSPECIFIED = 0;
-  // Weight-based units (e.g., KG, GR, TON).
-  UOM_CATEGORY_WEIGHT = 1;
-  // Length-based units (e.g., MTR, CM, YARD).
-  UOM_CATEGORY_LENGTH = 2;
-  // Volume-based units (e.g., LTR, ML).
-  UOM_CATEGORY_VOLUME = 3;
-  // Quantity-based units (e.g., PCS, BOX, SET).
-  UOM_CATEGORY_QUANTITY = 4;
-}
-
 // ActiveFilter represents filter options for is_active field.
 enum ActiveFilter {
   // Show all records regardless of active status (default).
@@ -49,14 +35,21 @@ message UOM {
   string uom_code = 2;
   // Display name (e.g., "Kilogram", "Meter", "Pieces").
   string uom_name = 3;
-  // Category of the UOM.
-  UOMCategory uom_category = 4;
+  // Reserved: was UOMCategory enum field.
+  reserved 4;
+  reserved "uom_category";
   // Optional description.
   string description = 5;
   // Whether the UOM is active.
   bool is_active = 6;
   // Audit information.
   common.v1.AuditInfo audit = 7;
+  // Category ID (FK to mst_uom_category).
+  string uom_category_id = 8;
+  // Category code (denormalized for display, e.g., "WEIGHT").
+  string uom_category_code = 9;
+  // Category name (denormalized for display, e.g., "Weight").
+  string uom_category_name = 10;
 }
 
 // =============================================================================
@@ -77,12 +70,13 @@ message CreateUOMRequest {
     min_len: 1
     max_len: 100
   }];
-  // Category (required, cannot be UNSPECIFIED).
-  UOMCategory uom_category = 3 [(buf.validate.field).enum = {
-    not_in: [0]
-  }];
+  // Reserved: was UOMCategory enum field.
+  reserved 3;
+  reserved "uom_category";
   // Optional description (max 500 chars).
   string description = 4 [(buf.validate.field).string.max_len = 500];
+  // Category ID (UUID, required - FK to mst_uom_category).
+  string uom_category_id = 5 [(buf.validate.field).string.uuid = true];
 }
 
 // CreateUOMResponse is the response for creating a UOM.
@@ -123,15 +117,15 @@ message UpdateUOMRequest {
   // New display name (optional, 1-100 chars if provided).
   // Empty string means no change.
   optional string uom_name = 2 [(buf.validate.field).string = {max_len: 100}];
-  // New category (optional, cannot be UNSPECIFIED if provided).
-  // Use has_uom_category to check if this field is set.
-  optional UOMCategory uom_category = 3 [(buf.validate.field).enum = {
-    not_in: [0]
-  }];
+  // Reserved: was UOMCategory enum field.
+  reserved 3;
+  reserved "uom_category";
   // New description (optional, max 500 chars).
   optional string description = 4 [(buf.validate.field).string.max_len = 500];
   // New active status (optional).
   optional bool is_active = 5;
+  // New category ID (optional, UUID format).
+  optional string uom_category_id = 6;
 }
 
 // UpdateUOMResponse is the response for updating a UOM.
@@ -173,19 +167,20 @@ message ListUOMsRequest {
   }];
   // Search query (searches in code, name, description).
   string search = 3 [(buf.validate.field).string.max_len = 100];
-  // Filter by category.
-  // UOM_CATEGORY_UNSPECIFIED (0) means "show all categories" (no filter).
-  UOMCategory category = 4;
+  // Reserved: was UOMCategory enum filter field.
+  reserved 4;
+  reserved "category";
   // Filter by active status.
   // ACTIVE_FILTER_UNSPECIFIED (0) = show all, ACTIVE_FILTER_ACTIVE (1) = only active,
   // ACTIVE_FILTER_INACTIVE (2) = only inactive.
   ActiveFilter active_filter = 5;
-  // Sort field: "code", "name", "created_at" (default: "code").
+  // Sort field: "code", "name", "category", "created_at" (default: "code").
   string sort_by = 6 [(buf.validate.field).string = {
     in: [
       "",
       "code",
       "name",
+      "category",
       "created_at"
     ]
   }];
@@ -197,6 +192,8 @@ message ListUOMsRequest {
       "desc"
     ]
   }];
+  // Filter by category ID (empty = no filter).
+  string uom_category_id = 8;
 }
 
 // ListUOMsResponse is the response for listing UOMs.
@@ -215,13 +212,15 @@ message ListUOMsResponse {
 
 // ExportUOMsRequest is the request for exporting UOMs to Excel.
 message ExportUOMsRequest {
-  // Filter by category.
-  // UOM_CATEGORY_UNSPECIFIED (0) means "export all categories".
-  UOMCategory category = 1;
+  // Reserved: was UOMCategory enum filter field.
+  reserved 1;
+  reserved "category";
   // Filter by active status.
   // ACTIVE_FILTER_UNSPECIFIED (0) = export all, ACTIVE_FILTER_ACTIVE (1) = only active,
   // ACTIVE_FILTER_INACTIVE (2) = only inactive.
   ActiveFilter active_filter = 2;
+  // Filter by category ID (empty = export all categories).
+  string uom_category_id = 3;
 }
 
 // ExportUOMsResponse is the response containing the Excel file.
