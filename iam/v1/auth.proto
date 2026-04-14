@@ -101,6 +101,31 @@ service AuthService {
   rpc GetCurrentUser(GetCurrentUserRequest) returns (GetCurrentUserResponse) {
     option (google.api.http) = {get: "/api/v1/iam/auth/me"};
   }
+
+  // SendEmailVerification sends a 6-digit verification code to the authenticated user's email.
+  // Generates a new token, invalidating any previous unconsumed tokens.
+  rpc SendEmailVerification(SendEmailVerificationRequest) returns (SendEmailVerificationResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/auth/send-email-verification"
+      body: "*"
+    };
+  }
+
+  // VerifyEmail consumes a verification code and marks the authenticated user's email as verified.
+  rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/auth/verify-email"
+      body: "*"
+    };
+  }
+
+  // ResendEmailVerification re-sends the verification code. Rate-limited to 1 per minute per user.
+  rpc ResendEmailVerification(ResendEmailVerificationRequest) returns (ResendEmailVerificationResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/auth/resend-email-verification"
+      body: "*"
+    };
+  }
 }
 
 // =============================================================================
@@ -154,6 +179,9 @@ message LoginData {
   AuthUser user = 5;
   // Whether 2FA is required (return true if 2FA enabled but totp_code not provided).
   bool requires_2fa = 6;
+  // Whether email verification is required before full access (email_verified_at IS NULL).
+  // Frontend should redirect to /verify-email and show banner on dashboard.
+  bool requires_email_verification = 7;
 }
 
 // AuthUser contains basic user info for authentication context.
@@ -174,6 +202,8 @@ message AuthUser {
   repeated string permissions = 7;
   // Whether 2FA is enabled.
   bool two_factor_enabled = 8;
+  // Whether the user has verified their email address (true if email_verified_at IS NOT NULL).
+  bool email_verified = 9;
 }
 
 // =============================================================================
@@ -394,4 +424,50 @@ message GetCurrentUserResponse {
   common.v1.BaseResponse base = 1;
   // User info.
   AuthUser data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Email Verification
+// =============================================================================
+
+// SendEmailVerificationRequest is empty (uses JWT context to resolve user + email).
+message SendEmailVerificationRequest {}
+
+// SendEmailVerificationResponse confirms the verification code was sent.
+message SendEmailVerificationResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Human-readable message (e.g., "Verification code sent to j***@example.com").
+  string message = 2;
+  // Code expiry in seconds (e.g., 900 = 15 minutes).
+  int32 expires_in = 3;
+}
+
+// VerifyEmailRequest validates the 6-digit verification code.
+message VerifyEmailRequest {
+  // 6-digit verification code sent to the user's email.
+  string code = 1 [(buf.validate.field).string = {
+    len: 6
+    pattern: "^[0-9]{6}$"
+  }];
+}
+
+// VerifyEmailResponse confirms the email is verified.
+message VerifyEmailResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// ResendEmailVerificationRequest re-sends the verification code.
+// Rate-limited to 1 per 60 seconds per user.
+message ResendEmailVerificationRequest {}
+
+// ResendEmailVerificationResponse confirms re-send.
+message ResendEmailVerificationResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Human-readable message.
+  string message = 2;
+  // Code expiry in seconds.
+  int32 expires_in = 3;
 }
