@@ -1,0 +1,329 @@
+syntax = "proto3";
+
+package finance.v1;
+
+// Note: go_package is managed by buf.gen.yaml managed mode
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+// JobStatus represents the current state of a job execution.
+enum JobStatus {
+  // Default unspecified value.
+  JOB_STATUS_UNSPECIFIED = 0;
+  // Job is queued and waiting for processing.
+  JOB_STATUS_QUEUED = 1;
+  // Job is currently being processed.
+  JOB_STATUS_PROCESSING = 2;
+  // Job completed successfully.
+  JOB_STATUS_SUCCESS = 3;
+  // Job failed.
+  JOB_STATUS_FAILED = 4;
+  // Job was cancelled.
+  JOB_STATUS_CANCELLED = 5;
+}
+
+// JobLogStatus represents the status of a job execution log step.
+enum JobLogStatus {
+  // Default unspecified value.
+  JOB_LOG_STATUS_UNSPECIFIED = 0;
+  // Step has started.
+  JOB_LOG_STATUS_STARTED = 1;
+  // Step completed successfully.
+  JOB_LOG_STATUS_SUCCESS = 2;
+  // Step failed.
+  JOB_LOG_STATUS_FAILED = 3;
+  // Step was skipped.
+  JOB_LOG_STATUS_SKIPPED = 4;
+}
+
+// =============================================================================
+// MESSAGES - Entities
+// =============================================================================
+
+// SyncJob represents a job execution for Oracle-to-PostgreSQL sync.
+message SyncJob {
+  // Unique job identifier (UUID).
+  string job_id = 1;
+  // Human-readable job code (e.g., "ORACLE_SYNC-202601-001").
+  string job_code = 2;
+  // Job type (e.g., "oracle_sync").
+  string job_type = 3;
+  // Job subtype for categorization.
+  string job_subtype = 4;
+  // Period being synced (YYYYMM format).
+  string period = 5;
+  // Current job status.
+  JobStatus status = 6;
+  // Priority (1-10, lower is higher priority).
+  int32 priority = 7;
+  // Progress percentage (0-100).
+  int32 progress = 8;
+  // Error message if the job failed.
+  string error_message = 9;
+  // Result summary as JSON string.
+  string result_summary = 10;
+  // Number of retry attempts.
+  int32 retry_count = 11;
+  // Maximum allowed retries.
+  int32 max_retries = 12;
+  // Timestamp when the job was queued (ISO 8601).
+  string queued_at = 13;
+  // Timestamp when processing started (ISO 8601).
+  string started_at = 14;
+  // Timestamp when the job completed (ISO 8601).
+  string completed_at = 15;
+  // User who created the job.
+  string created_by = 16;
+  // User who cancelled the job.
+  string cancelled_by = 17;
+  // Timestamp when the job was cancelled (ISO 8601).
+  string cancelled_at = 18;
+  // Execution logs for this job.
+  repeated SyncJobLog logs = 19;
+}
+
+// SyncJobLog represents a single step log entry within a job execution.
+message SyncJobLog {
+  // Unique log identifier (UUID).
+  string log_id = 1;
+  // Parent job identifier (UUID).
+  string job_id = 2;
+  // Step name (e.g., "execute_procedure", "fetch_data", "upsert_data").
+  string step = 3;
+  // Step status.
+  JobLogStatus status = 4;
+  // Log message.
+  string message = 5;
+  // Additional metadata as JSON string.
+  string metadata = 6;
+  // Timestamp when the step started (ISO 8601).
+  string started_at = 7;
+  // Timestamp when the step completed (ISO 8601).
+  string completed_at = 8;
+  // Duration of the step in milliseconds.
+  int32 duration_ms = 9;
+}
+
+// ItemConsStockPO represents a synced item consumption, stock, and PO record.
+message ItemConsStockPO {
+  // Period (YYYYMM format).
+  string period = 1;
+  // Item code.
+  string item_code = 2;
+  // Grade code.
+  string grade_code = 3;
+  // Grade name.
+  string grade_name = 4;
+  // Item name.
+  string item_name = 5;
+  // Unit of measure.
+  string uom = 6;
+  // Consumption quantity.
+  double cons_qty = 7;
+  // Consumption value.
+  double cons_val = 8;
+  // Consumption rate.
+  double cons_rate = 9;
+  // Stores quantity.
+  double stores_qty = 10;
+  // Stores value.
+  double stores_val = 11;
+  // Stores rate.
+  double stores_rate = 12;
+  // Department quantity.
+  double dept_qty = 13;
+  // Department value.
+  double dept_val = 14;
+  // Department rate.
+  double dept_rate = 15;
+  // Last PO 1 quantity.
+  double last_po_qty1 = 16;
+  // Last PO 1 value.
+  double last_po_val1 = 17;
+  // Last PO 1 rate.
+  double last_po_rate1 = 18;
+  // Last PO 1 date (ISO 8601).
+  string last_po_dt1 = 19;
+  // Last PO 2 quantity.
+  double last_po_qty2 = 20;
+  // Last PO 2 value.
+  double last_po_val2 = 21;
+  // Last PO 2 rate.
+  double last_po_rate2 = 22;
+  // Last PO 2 date (ISO 8601).
+  string last_po_dt2 = 23;
+  // Last PO 3 quantity.
+  double last_po_qty3 = 24;
+  // Last PO 3 value.
+  double last_po_val3 = 25;
+  // Last PO 3 rate.
+  double last_po_rate3 = 26;
+  // Last PO 3 date (ISO 8601).
+  string last_po_dt3 = 27;
+  // Timestamp when the record was synced (ISO 8601).
+  string synced_at = 28;
+  // Job ID that synced this record (UUID).
+  string synced_by_job = 29;
+}
+
+// =============================================================================
+// MESSAGES - Requests and Responses
+// =============================================================================
+
+// TriggerSyncRequest initiates an Oracle-to-PostgreSQL sync job.
+message TriggerSyncRequest {
+  // Period to sync (YYYYMM format). If empty, auto-resolved based on current date.
+  string period = 1 [(buf.validate.field).string.max_len = 6];
+}
+
+// TriggerSyncResponse returns the created job.
+message TriggerSyncResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // The created sync job.
+  SyncJob data = 2;
+}
+
+// GetSyncJobRequest retrieves a specific sync job by ID.
+message GetSyncJobRequest {
+  // Job identifier (UUID).
+  string job_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// GetSyncJobResponse returns a single sync job with logs.
+message GetSyncJobResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // The sync job with logs.
+  SyncJob data = 2;
+}
+
+// ListSyncJobsRequest retrieves a paginated list of sync jobs.
+message ListSyncJobsRequest {
+  // Page number (1-indexed).
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  // Number of items per page.
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
+  // Filter by job type.
+  string job_type = 3 [(buf.validate.field).string.max_len = 50];
+  // Filter by status.
+  JobStatus status = 4;
+  // Filter by period (YYYYMM).
+  string period = 5 [(buf.validate.field).string.max_len = 6];
+  // Search in job code or error message.
+  string search = 6 [(buf.validate.field).string.max_len = 100];
+}
+
+// ListSyncJobsResponse returns a paginated list of sync jobs.
+message ListSyncJobsResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // List of sync jobs.
+  repeated SyncJob data = 2;
+  // Pagination metadata.
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// CancelSyncJobRequest cancels a queued or processing sync job.
+message CancelSyncJobRequest {
+  // Job identifier (UUID).
+  string job_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// CancelSyncJobResponse returns the cancelled job.
+message CancelSyncJobResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // The cancelled sync job.
+  SyncJob data = 2;
+}
+
+// ListItemConsStockPORequest retrieves synced item consumption data.
+message ListItemConsStockPORequest {
+  // Page number (1-indexed).
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  // Number of items per page.
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
+  // Filter by period (YYYYMM).
+  string period = 3 [(buf.validate.field).string.max_len = 6];
+  // Filter by item code.
+  string item_code = 4 [(buf.validate.field).string.max_len = 20];
+  // Full-text search on item name, item code, grade name.
+  string search = 5 [(buf.validate.field).string.max_len = 100];
+}
+
+// ListItemConsStockPOResponse returns synced item consumption data.
+message ListItemConsStockPOResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // List of synced records.
+  repeated ItemConsStockPO data = 2;
+  // Pagination metadata.
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// ListSyncPeriodsRequest retrieves available sync periods.
+message ListSyncPeriodsRequest {}
+
+// ListSyncPeriodsResponse returns the list of distinct periods.
+message ListSyncPeriodsResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // List of periods in YYYYMM format, ordered descending.
+  repeated string periods = 2;
+}
+
+// =============================================================================
+// SERVICE
+// =============================================================================
+
+// OracleSyncService manages Oracle-to-PostgreSQL data synchronization.
+service OracleSyncService {
+  // TriggerSync initiates a manual Oracle sync job.
+  rpc TriggerSync(TriggerSyncRequest) returns (TriggerSyncResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/oracle-sync/trigger"
+      body: "*"
+    };
+  }
+
+  // GetSyncJob retrieves a specific sync job by ID with execution logs.
+  rpc GetSyncJob(GetSyncJobRequest) returns (GetSyncJobResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/oracle-sync/jobs/{job_id}"};
+  }
+
+  // ListSyncJobs retrieves a paginated list of sync job executions.
+  rpc ListSyncJobs(ListSyncJobsRequest) returns (ListSyncJobsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/oracle-sync/jobs"};
+  }
+
+  // CancelSyncJob cancels a queued or in-progress sync job.
+  rpc CancelSyncJob(CancelSyncJobRequest) returns (CancelSyncJobResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/oracle-sync/jobs/{job_id}/cancel"
+      body: "*"
+    };
+  }
+
+  // ListItemConsStockPO retrieves synced item consumption, stock, and PO data.
+  rpc ListItemConsStockPO(ListItemConsStockPORequest) returns (ListItemConsStockPOResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/item-cons-stock-po"};
+  }
+
+  // ListSyncPeriods retrieves all available sync periods.
+  rpc ListSyncPeriods(ListSyncPeriodsRequest) returns (ListSyncPeriodsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/oracle-sync/periods"};
+  }
+}
