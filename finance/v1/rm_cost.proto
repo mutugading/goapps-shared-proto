@@ -1,0 +1,430 @@
+syntax = "proto3";
+
+package finance.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "finance/v1/rm_group.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+// RMCostType discriminates a group-level cost row from an item-level cost row.
+enum RMCostType {
+  // Default zero value. Means "no filter" in list requests.
+  RM_COST_TYPE_UNSPECIFIED = 0;
+  // Cost row aggregates a whole RM group.
+  RM_COST_TYPE_GROUP = 1;
+  // Cost row is computed for a single item (future phase).
+  RM_COST_TYPE_ITEM = 2;
+}
+
+// RMCostTriggerReason enumerates the reasons a calculation was run. Mirrors
+// `rmcost.HistoryTriggerReason`.
+enum RMCostTriggerReason {
+  // Default zero value. Rejected on trigger requests via not_in: [0].
+  RM_COST_TRIGGER_REASON_UNSPECIFIED = 0;
+  // Auto-chained after a successful Oracle sync for the synced period.
+  RM_COST_TRIGGER_REASON_ORACLE_SYNC_CHAIN = 1;
+  // Group header changed.
+  RM_COST_TRIGGER_REASON_GROUP_UPDATE = 2;
+  // An item was added/removed/toggled in the group.
+  RM_COST_TRIGGER_REASON_DETAIL_CHANGE = 3;
+  // Explicit user request from the UI.
+  RM_COST_TRIGGER_REASON_MANUAL_UI = 4;
+}
+
+// =============================================================================
+// MESSAGES - Entity
+// =============================================================================
+
+// RMCostRates is the per-stage snapshot of aggregated rates captured at calc time.
+message RMCostRates {
+  // CONS stage rate.
+  double cons = 1;
+  // STORES stage rate.
+  double stores = 2;
+  // DEPT stage rate.
+  double dept = 3;
+  // First PO stage rate.
+  double po_1 = 4;
+  // Second PO stage rate.
+  double po_2 = 5;
+  // Third PO stage rate.
+  double po_3 = 6;
+}
+
+// RMCost is the landed cost computed for a single (period, rm_code) pair.
+message RMCost {
+  // Cost row UUID.
+  string rm_cost_id = 1;
+  // Period (YYYYMM).
+  string period = 2;
+  // Group code (rm_type=GROUP) or item code (rm_type=ITEM).
+  string rm_code = 3;
+  // Discriminator.
+  RMCostType rm_type = 4;
+  // Owning group head UUID (set when rm_type=GROUP).
+  optional string group_head_id = 5;
+  // Item code (set when rm_type=ITEM).
+  optional string item_code = 6;
+  // Display name of the RM (group or item).
+  string rm_name = 7;
+  // UOM code.
+  string uom_code = 8;
+  // Per-stage rate snapshot.
+  RMCostRates rates = 9;
+  // Computed valuation landed cost (nil when never calculated).
+  optional double cost_valuation = 10;
+  // Computed marketing landed cost.
+  optional double cost_marketing = 11;
+  // Computed simulation landed cost.
+  optional double cost_simulation = 12;
+  // Flags configured on the group header at calc time.
+  RMGroupFlag flag_valuation = 13;
+  // Flag configured on the group header at calc time.
+  RMGroupFlag flag_marketing = 14;
+  // Flag configured on the group header at calc time.
+  RMGroupFlag flag_simulation = 15;
+  // Stage actually used after cascade / INIT resolution.
+  RMGroupFlag flag_valuation_used = 17;
+  // Stage actually used after cascade / INIT resolution.
+  RMGroupFlag flag_marketing_used = 18;
+  // Stage actually used after cascade / INIT resolution.
+  RMGroupFlag flag_simulation_used = 19;
+  // Last calculation timestamp (RFC3339, empty when never calculated).
+  string calculated_at = 20;
+  // Last calculator (empty when never calculated).
+  string calculated_by = 21;
+  // Audit metadata.
+  common.v1.AuditInfo audit = 16;
+}
+
+// RMCostHistory is one row of the append-only audit trail written alongside every
+// calculation pass.
+message RMCostHistory {
+  // History row UUID.
+  string history_id = 1;
+  // Cost row this history refers to (nil if the cost row was later deleted).
+  optional string rm_cost_id = 2;
+  // Job that produced this history row (nil when no job context).
+  optional string job_id = 3;
+  // Period.
+  string period = 4;
+  // RM code.
+  string rm_code = 5;
+  // Discriminator.
+  RMCostType rm_type = 6;
+  // Owning group head UUID (when rm_type=GROUP).
+  optional string group_head_id = 7;
+  // Rates captured for this calc pass.
+  RMCostRates rates = 8;
+  // Snapshot of head.cost_percentage at calc time.
+  double cost_percentage = 9;
+  // Snapshot of head.cost_per_kg at calc time.
+  double cost_per_kg = 10;
+  // Configured flags at calc time.
+  RMGroupFlag flag_valuation = 11;
+  // Configured flags at calc time.
+  RMGroupFlag flag_marketing = 12;
+  // Configured flags at calc time.
+  RMGroupFlag flag_simulation = 13;
+  // Init-value overrides at calc time.
+  optional double init_val_valuation = 14;
+  // Init-value overrides at calc time.
+  optional double init_val_marketing = 15;
+  // Init-value overrides at calc time.
+  optional double init_val_simulation = 16;
+  // Computed costs at calc time.
+  optional double cost_valuation = 17;
+  // Computed costs at calc time.
+  optional double cost_marketing = 18;
+  // Computed costs at calc time.
+  optional double cost_simulation = 19;
+  // Stages resolved at calc time.
+  RMGroupFlag flag_valuation_used = 20;
+  // Stages resolved at calc time.
+  RMGroupFlag flag_marketing_used = 21;
+  // Stages resolved at calc time.
+  RMGroupFlag flag_simulation_used = 22;
+  // Count of source items aggregated.
+  int32 source_item_count = 23;
+  // Why this calc was triggered.
+  RMCostTriggerReason trigger_reason = 24;
+  // When the calc ran (RFC3339).
+  string calculated_at = 25;
+  // Who ran the calc.
+  string calculated_by = 26;
+}
+
+// =============================================================================
+// MESSAGES - Trigger
+// =============================================================================
+
+// TriggerRMCostCalculation enqueues a recalculation job. Returns immediately
+// with a job ID the caller can poll via the job-execution endpoint.
+message TriggerRMCostCalculationRequest {
+  // Period to recalculate (YYYYMM).
+  string period = 1 [(buf.validate.field).string = {
+    len: 6
+    pattern: "^\\d{6}$"
+  }];
+  // When set, scope the calc to a single group. Empty = all active groups.
+  optional string group_head_id = 2 [(buf.validate.field).string.uuid = true];
+  // Why the recalc was requested.
+  RMCostTriggerReason trigger_reason = 3 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+}
+
+// Trigger response.
+message TriggerRMCostCalculationResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Enqueued job UUID.
+  string job_id = 2;
+}
+
+// =============================================================================
+// MESSAGES - Calculate (synchronous, admin-only)
+// =============================================================================
+
+// CalculateRMCost runs a calculation synchronously and returns the produced rows.
+// Intended for admin/troubleshooting use — production traffic should go through
+// TriggerRMCostCalculation.
+message CalculateRMCostRequest {
+  // Period (YYYYMM).
+  string period = 1 [(buf.validate.field).string = {
+    len: 6
+    pattern: "^\\d{6}$"
+  }];
+  // Optional single-group scope.
+  optional string group_head_id = 2 [(buf.validate.field).string.uuid = true];
+  // Why this calc was run.
+  RMCostTriggerReason trigger_reason = 3 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+}
+
+// Calculate response.
+message CalculateRMCostResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Number of group heads processed.
+  int32 processed = 2;
+  // Number of group heads skipped (no active details / no source rows).
+  int32 skipped = 3;
+  // Period that was calculated (echoes request).
+  string period = 4;
+}
+
+// =============================================================================
+// MESSAGES - Get
+// =============================================================================
+
+// GetRMCost fetches a single cost row by (period, rm_code).
+message GetRMCostRequest {
+  // Period (YYYYMM).
+  string period = 1 [(buf.validate.field).string = {
+    len: 6
+    pattern: "^\\d{6}$"
+  }];
+  // RM code (group or item).
+  string rm_code = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 50
+  }];
+}
+
+// Get response.
+message GetRMCostResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Cost data.
+  RMCost data = 2;
+}
+
+// =============================================================================
+// MESSAGES - List
+// =============================================================================
+
+// ListRMCosts lists cost rows with filter + pagination.
+message ListRMCostsRequest {
+  // Page number (1-indexed).
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  // Page size (1-100).
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
+  // Period filter (YYYYMM). Empty = all periods.
+  string period = 3 [(buf.validate.field).string = {
+    pattern: "^$|^\\d{6}$"
+    max_len: 6
+  }];
+  // Filter by RM type. UNSPECIFIED = all.
+  RMCostType rm_type = 4;
+  // Optional group scope.
+  optional string group_head_id = 5 [(buf.validate.field).string.uuid = true];
+  // Free-text search on rm_code + rm_name.
+  string search = 6 [(buf.validate.field).string.max_len = 100];
+  // Sort field.
+  string sort_by = 7 [(buf.validate.field).string = {
+    in: [
+      "",
+      "period",
+      "rm_code",
+      "rm_name",
+      "calculated_at"
+    ]
+  }];
+  // Sort order.
+  string sort_order = 8 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
+}
+
+// List response.
+message ListRMCostsResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Cost rows.
+  repeated RMCost data = 2;
+  // Pagination metadata.
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// =============================================================================
+// MESSAGES - History
+// =============================================================================
+
+// ListRMCostHistory lists audit-history rows with filter + pagination.
+message ListRMCostHistoryRequest {
+  // Page number (1-indexed).
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  // Page size (1-100).
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
+  // Period filter (YYYYMM). Empty = all periods.
+  string period = 3 [(buf.validate.field).string = {
+    pattern: "^$|^\\d{6}$"
+    max_len: 6
+  }];
+  // RM code filter (empty = all).
+  string rm_code = 4 [(buf.validate.field).string.max_len = 50];
+  // Optional group scope.
+  optional string group_head_id = 5 [(buf.validate.field).string.uuid = true];
+  // Optional job scope.
+  optional string job_id = 6 [(buf.validate.field).string.uuid = true];
+}
+
+// History response.
+message ListRMCostHistoryResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // History rows ordered by calculated_at DESC.
+  repeated RMCostHistory data = 2;
+  // Pagination metadata.
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// =============================================================================
+// SERVICE DEFINITION
+// =============================================================================
+
+// RMCostService exposes the landed-cost calculation pipeline: async trigger,
+// synchronous admin recalc, single-row fetch, list, and history.
+service RMCostService {
+  // TriggerRMCostCalculation enqueues an async recalculation job.
+  rpc TriggerRMCostCalculation(TriggerRMCostCalculationRequest) returns (TriggerRMCostCalculationResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/rm-costs/trigger"
+      body: "*"
+    };
+  }
+
+  // CalculateRMCost runs a recalculation synchronously (admin-only).
+  rpc CalculateRMCost(CalculateRMCostRequest) returns (CalculateRMCostResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/rm-costs/calculate"
+      body: "*"
+    };
+  }
+
+  // GetRMCost fetches a single cost row by (period, rm_code).
+  rpc GetRMCost(GetRMCostRequest) returns (GetRMCostResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/rm-costs/{period}/{rm_code}"};
+  }
+
+  // ListRMCosts lists cost rows with filter + pagination.
+  rpc ListRMCosts(ListRMCostsRequest) returns (ListRMCostsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/rm-costs"};
+  }
+
+  // ListRMCostHistory lists audit-history rows with filter + pagination.
+  rpc ListRMCostHistory(ListRMCostHistoryRequest) returns (ListRMCostHistoryResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/rm-costs/history"};
+  }
+
+  // ListRMCostPeriods returns distinct periods from cost rows (newest first).
+  rpc ListRMCostPeriods(ListRMCostPeriodsRequest) returns (ListRMCostPeriodsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/rm-costs/periods"};
+  }
+
+  // ExportRMCosts exports cost rows matching the filter to a single-sheet Excel.
+  rpc ExportRMCosts(ExportRMCostsRequest) returns (ExportRMCostsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/rm-costs/export"};
+  }
+}
+
+// =============================================================================
+// MESSAGES - Periods
+// =============================================================================
+
+// ListRMCostPeriods has no filter arguments.
+message ListRMCostPeriodsRequest {}
+
+// =============================================================================
+// MESSAGES - Export
+// =============================================================================
+
+// ExportRMCostsRequest filters the cost rows to export. No pagination.
+message ExportRMCostsRequest {
+  // Period filter (YYYYMM). Empty = all periods.
+  string period = 1 [(buf.validate.field).string = {
+    pattern: "^$|^\\d{6}$"
+    max_len: 6
+  }];
+  // Filter by RM type. UNSPECIFIED = all.
+  RMCostType rm_type = 2;
+  // Optional group scope.
+  optional string group_head_id = 3 [(buf.validate.field).string.uuid = true];
+  // Free-text search on rm_code + rm_name.
+  string search = 4 [(buf.validate.field).string.max_len = 100];
+}
+
+// ExportRMCostsResponse carries the Excel bytes + filename.
+message ExportRMCostsResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Excel file content (.xlsx).
+  bytes file_content = 2;
+  // Suggested filename.
+  string file_name = 3;
+}
+
+// Response carries the distinct set of calculated periods.
+message ListRMCostPeriodsResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Distinct periods ordered DESC (newest first), YYYYMM strings.
+  repeated string periods = 2;
+}
