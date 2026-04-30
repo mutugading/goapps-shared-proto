@@ -731,10 +731,24 @@ message GetRMGroupItemRatesResponse {
 // MESSAGES - Export / Import / Template
 // =============================================================================
 
-// ExportRMGroupsRequest filters the export. Active filter only (no pagination).
+// ExportRMGroupsRequest filters the export. Three mutually-exclusive modes:
+//
+//   - All groups: leave both filters unset (default).
+//   - Filtered:   set `active_filter` (and/or `search`) to narrow the set.
+//   - Selected:   pass an explicit list of group_head_ids; all other filters
+//                 are ignored.
 message ExportRMGroupsRequest {
   // Filter by active/inactive (UNSPECIFIED = all).
   ActiveFilter active_filter = 1;
+  // Optional explicit group selection. When non-empty, only these groups
+  // are exported (overrides `active_filter` and `search`).
+  repeated string group_head_ids = 2 [(buf.validate.field).repeated = {
+    items: {
+      string: {uuid: true}
+    }
+  }];
+  // Optional code/name search string. Empty = no search filter.
+  string search = 3 [(buf.validate.field).string.max_len = 100];
 }
 
 // ExportRMGroupsResponse returns a multi-sheet Excel (Groups + Items).
