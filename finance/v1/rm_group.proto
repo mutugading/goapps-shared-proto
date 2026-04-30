@@ -34,6 +34,39 @@ enum RMGroupFlag {
   RM_GROUP_FLAG_PO_3 = 7;
 }
 
+// RMValuationFlag selects which computed rate becomes `cost_val` in the
+// RM Cost row. UNSPECIFIED behaves as AUTO (CL → SL → FL fallback, where
+// FL incorporates the per-detail valuation_default_value).
+enum RMValuationFlag {
+  // Default zero value. Treated as AUTO (CL→SL→FL fallback).
+  RM_VALUATION_FLAG_UNSPECIFIED = 0;
+  // Use Consumption Rate (CR) — group-total cons_val / cons_qty.
+  RM_VALUATION_FLAG_CR = 1;
+  // Use Stock Rate (SR) — group-total stock_val / stock_qty.
+  RM_VALUATION_FLAG_SR = 2;
+  // Use PO Rate (PR) — group-total po_val / po_qty.
+  RM_VALUATION_FLAG_PR = 3;
+  // Use Consumption Landed Cost (CL) — group-total CL aggregate.
+  RM_VALUATION_FLAG_CL = 4;
+  // Use Stock Landed Cost (SL) — group-total SL aggregate.
+  RM_VALUATION_FLAG_SL = 5;
+  // Use Fix Landed Cost (FL) — MAX of per-detail FL.
+  RM_VALUATION_FLAG_FL = 6;
+}
+
+// RMMarketingFlag selects which computed marketing projection becomes
+// `cost_mark`. UNSPECIFIED behaves as AUTO (SP → PP → FP fallback).
+enum RMMarketingFlag {
+  // Default zero value. Treated as AUTO (SP→PP→FP fallback).
+  RM_MARKETING_FLAG_UNSPECIFIED = 0;
+  // Projection Stock Landed Cost.
+  RM_MARKETING_FLAG_SP = 1;
+  // Projection PO Landed Cost.
+  RM_MARKETING_FLAG_PP = 2;
+  // Projection Fix Value Landed Cost.
+  RM_MARKETING_FLAG_FP = 3;
+}
+
 // RemoveItemsMode controls how RemoveItems disposes of detail rows.
 enum RemoveItemsMode {
   // Default zero value. Rejected via not_in: [0].
@@ -82,6 +115,18 @@ message RMGroupHead {
   bool is_active = 15;
   // Audit metadata.
   common.v1.AuditInfo audit = 16;
+  // V2: Marketing freight rate (added to base rate before duty/anti).
+  optional double marketing_freight_rate = 17;
+  // V2: Marketing anti-dumping percentage (whole percent, e.g. 5 = 5%).
+  optional double marketing_anti_dumping_pct = 18;
+  // V2: Marketing default value (drives FP projection when set).
+  optional double marketing_default_value = 19;
+  // V2: Valuation flag (CR/SR/PR/CL/SL/FL) — replaces flag_valuation semantics
+  // for the new engine. When UNSPECIFIED uses AUTO fallback CL→SL→FL.
+  RMValuationFlag valuation_flag = 20;
+  // V2: Marketing flag (SP/PP/FP) — replaces flag_marketing semantics.
+  // When UNSPECIFIED uses AUTO fallback SP→PP→FP.
+  RMMarketingFlag marketing_flag = 21;
 }
 
 // RMGroupDetail is one item's membership in an RM group.
@@ -112,8 +157,18 @@ message RMGroupDetail {
   bool is_active = 12;
   // Placeholder row (excluded from aggregation regardless of is_active).
   bool is_dummy = 13;
+  // V2: Valuation freight rate (per detail; feeds CL/SL/FL formulas).
+  optional double valuation_freight_rate = 14;
+  // V2: Valuation anti-dumping percentage (decimal, e.g. 0.10 = 10%).
+  optional double valuation_anti_dumping_pct = 15;
   // Audit metadata.
   common.v1.AuditInfo audit = 16;
+  // V2: Valuation duty percentage (decimal).
+  optional double valuation_duty_pct = 17;
+  // V2: Valuation transport rate (per detail).
+  optional double valuation_transport_rate = 18;
+  // V2: Valuation default value (per detail; drives FL).
+  optional double valuation_default_value = 19;
 }
 
 // RMGroupHeadWithDetails bundles a head and its details for the Get response.
@@ -215,10 +270,20 @@ message CreateRMGroupRequest {
   string colourant = 4 [(buf.validate.field).string.max_len = 100];
   // Optional CI name tag.
   string ci_name = 5 [(buf.validate.field).string.max_len = 100];
-  // Cost percentage multiplier (>= 0).
+  // Cost percentage multiplier (>= 0). Aliased as Marketing Duty %.
   double cost_percentage = 6 [(buf.validate.field).double.gte = 0];
-  // Per-kg overhead (>= 0).
+  // Per-kg overhead (>= 0). Aliased as Marketing Transport Rate.
   double cost_per_kg = 7 [(buf.validate.field).double.gte = 0];
+  // V2: Marketing freight rate.
+  optional double marketing_freight_rate = 8 [(buf.validate.field).double.gte = 0];
+  // V2: Marketing anti-dumping percentage (whole percent).
+  optional double marketing_anti_dumping_pct = 9 [(buf.validate.field).double.gte = 0];
+  // V2: Marketing default value.
+  optional double marketing_default_value = 10 [(buf.validate.field).double.gte = 0];
+  // V2: Valuation flag.
+  RMValuationFlag valuation_flag = 11;
+  // V2: Marketing flag.
+  RMMarketingFlag marketing_flag = 12;
 }
 
 // Create response.
@@ -294,6 +359,20 @@ message UpdateRMGroupRequest {
   bool clear_init_val_marketing = 16;
   // When true, force init_val_simulation to NULL.
   bool clear_init_val_simulation = 17;
+  // V2: Marketing freight rate.
+  optional double marketing_freight_rate = 18 [(buf.validate.field).double.gte = 0];
+  // V2: Marketing anti-dumping % (whole percent).
+  optional double marketing_anti_dumping_pct = 19 [(buf.validate.field).double.gte = 0];
+  // V2: Marketing default value.
+  optional double marketing_default_value = 20 [(buf.validate.field).double.gte = 0];
+  // V2: Valuation flag.
+  optional RMValuationFlag valuation_flag = 21;
+  // V2: Marketing flag.
+  optional RMMarketingFlag marketing_flag = 22;
+  // V2 clear flags for nullable marketing fields.
+  bool clear_marketing_freight_rate = 23;
+  bool clear_marketing_anti_dumping_pct = 24;
+  bool clear_marketing_default_value = 25;
 }
 
 // Update response.
@@ -384,6 +463,12 @@ message AddItemSelection {
   // Grade code (optional). Empty matches the variant with NULL / empty
   // grade_code in the sync feed. Use "" when the row has a single variant.
   string grade_code = 2 [(buf.validate.field).string.max_len = 40];
+  // V2 optional valuation inputs (per-detail). Backend stores NULL when omitted.
+  optional double valuation_freight_rate = 3 [(buf.validate.field).double.gte = 0];
+  optional double valuation_anti_dumping_pct = 4 [(buf.validate.field).double.gte = 0];
+  optional double valuation_duty_pct = 5 [(buf.validate.field).double.gte = 0];
+  optional double valuation_transport_rate = 6 [(buf.validate.field).double.gte = 0];
+  optional double valuation_default_value = 7 [(buf.validate.field).double.gte = 0];
 }
 
 // Add one or more items to a group. Items already in another active group are
@@ -444,6 +529,33 @@ message RemoveItemsResponse {
   common.v1.BaseResponse base = 1;
   // Number of details affected.
   int32 removed_count = 2;
+}
+
+// V2: Partial update of one detail row's valuation fields + sort_order/is_active.
+message UpdateGroupItemRequest {
+  // Owning group head UUID.
+  string group_head_id = 1 [(buf.validate.field).string.uuid = true];
+  // Detail UUID to update.
+  string group_detail_id = 2 [(buf.validate.field).string.uuid = true];
+  optional double valuation_freight_rate = 3 [(buf.validate.field).double.gte = 0];
+  optional double valuation_anti_dumping_pct = 4 [(buf.validate.field).double.gte = 0];
+  optional double valuation_duty_pct = 5 [(buf.validate.field).double.gte = 0];
+  optional double valuation_transport_rate = 6 [(buf.validate.field).double.gte = 0];
+  optional double valuation_default_value = 7 [(buf.validate.field).double.gte = 0];
+  optional int32 sort_order = 8 [(buf.validate.field).int32.gte = 0];
+  optional bool is_active = 9;
+  // Clear flags for nullable valuation fields (force NULL).
+  bool clear_valuation_freight_rate = 10;
+  bool clear_valuation_anti_dumping_pct = 11;
+  bool clear_valuation_duty_pct = 12;
+  bool clear_valuation_transport_rate = 13;
+  bool clear_valuation_default_value = 14;
+}
+
+// V2: Update one detail response.
+message UpdateGroupItemResponse {
+  common.v1.BaseResponse base = 1;
+  RMGroupDetail data = 2;
 }
 
 // =============================================================================
@@ -746,6 +858,14 @@ service RMGroupService {
   rpc RemoveItems(RemoveItemsRequest) returns (RemoveItemsResponse) {
     option (google.api.http) = {
       post: "/api/v1/finance/rm-groups/{group_head_id}/items/remove"
+      body: "*"
+    };
+  }
+
+  // V2: UpdateGroupItem updates one detail row's valuation fields + sort/active.
+  rpc UpdateGroupItem(UpdateGroupItemRequest) returns (UpdateGroupItemResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/finance/rm-groups/{group_head_id}/items/{group_detail_id}"
       body: "*"
     };
   }
