@@ -77,6 +77,20 @@ enum RemoveItemsMode {
   REMOVE_ITEMS_MODE_SOFT_DELETE = 2;
 }
 
+// RMGroupingScope filters the grouping monitor view by whether each
+// (item_code, grade_code) pair is currently assigned to an active RM group.
+// Status is evaluated cross-period — group membership is master data and
+// does not depend on the period the item appeared in the sync feed.
+enum RMGroupingScope {
+  // Default zero value. Treated as UNGROUPED.
+  RM_GROUPING_SCOPE_UNSPECIFIED = 0;
+  // Items not assigned to any active group (deleted/inactive details count
+  // as ungrouped — operator must reassign to surface the item again).
+  RM_GROUPING_SCOPE_UNGROUPED = 1;
+  // Items with at least one active, non-deleted detail row in any group.
+  RM_GROUPING_SCOPE_GROUPED = 2;
+}
+
 // =============================================================================
 // MESSAGES - Entity
 // =============================================================================
@@ -179,59 +193,43 @@ message RMGroupHeadWithDetails {
   repeated RMGroupDetail details = 2;
 }
 
-// UngroupedItem is a raw material present in the Oracle sync feed that has no
-// active RM group assignment.
+// UngroupedItem represents one (item_code, grade_code) pair viewed through the
+// grouping monitor. Used by both UNGROUPED and GROUPED scopes — the group_*
+// fields are populated only when the item is assigned to an active group.
+//
+// Per-period qty/rate snapshot fields were removed (reserved 1, 8-25) because
+// the monitor view is cross-period and those numbers are no longer relevant
+// to the grouped/ungrouped status.
 message UngroupedItem {
-  // Period (YYYYMM).
-  string period = 1;
+  reserved 1;
+  reserved "period";
+  reserved 8 to 25;
+  reserved "cons_val", "stores_val", "cons_qty", "cons_rate", "stores_qty", "stores_rate", "dept_qty", "dept_val", "dept_rate", "last_po_qty1", "last_po_val1", "last_po_rate1", "last_po_qty2", "last_po_val2", "last_po_rate2", "last_po_qty3", "last_po_val3", "last_po_rate3";
+
   // Item code.
   string item_code = 2;
-  // Item name.
+  // Item name (latest known from sync feed).
   string item_name = 3;
-  // Item type code.
+  // Item type code (latest known from sync feed).
   string item_type_code = 4;
   // Grade code.
   string grade_code = 5;
-  // Item grade.
+  // Item grade (grade_name from the sync feed).
   string item_grade = 6;
-  // UOM code.
+  // UOM code (latest known from sync feed).
   string uom_code = 7;
-  // CONS stage value.
-  double cons_val = 8;
-  // STORES stage value.
-  double stores_val = 9;
-  // CONS stage quantity.
-  double cons_qty = 10;
-  // CONS stage rate.
-  double cons_rate = 11;
-  // STORES stage quantity.
-  double stores_qty = 12;
-  // STORES stage rate.
-  double stores_rate = 13;
-  // DEPT stage quantity.
-  double dept_qty = 14;
-  // DEPT stage value.
-  double dept_val = 15;
-  // DEPT stage rate.
-  double dept_rate = 16;
-  // PO_1 stage quantity.
-  double last_po_qty1 = 17;
-  // PO_1 stage value.
-  double last_po_val1 = 18;
-  // PO_1 stage rate.
-  double last_po_rate1 = 19;
-  // PO_2 stage quantity.
-  double last_po_qty2 = 20;
-  // PO_2 stage value.
-  double last_po_val2 = 21;
-  // PO_2 stage rate.
-  double last_po_rate2 = 22;
-  // PO_3 stage quantity.
-  double last_po_qty3 = 23;
-  // PO_3 stage value.
-  double last_po_val3 = 24;
-  // PO_3 stage rate.
-  double last_po_rate3 = 25;
+
+  // Owning group head UUID. Empty when scope = UNGROUPED.
+  string group_head_id = 26;
+  // Owning group code (uppercase). Empty when scope = UNGROUPED.
+  string group_code = 27;
+  // Owning group name. Empty when scope = UNGROUPED.
+  string group_name = 28;
+  // Sort order within the group. Zero when scope = UNGROUPED.
+  int32 sort_order = 29;
+  // ISO-8601 timestamp the item was first added to the group (created_at on
+  // the active detail row). Empty when scope = UNGROUPED.
+  string assigned_at = 30;
 }
 
 // SkippedItem captures items rejected by AddItems because they already belong
@@ -562,8 +560,12 @@ message UpdateGroupItemResponse {
 // MESSAGES - Ungrouped Items
 // =============================================================================
 
-// List items from the Oracle sync feed that have no active RM group assignment.
+// List items in the grouping monitor. `scope` selects ungrouped vs grouped;
+// status is evaluated cross-period.
 message ListUngroupedItemsRequest {
+  reserved 3;
+  reserved "period";
+
   // Page number (1-indexed).
   int32 page = 1 [(buf.validate.field).int32.gte = 1];
   // Page size (1-100).
@@ -571,13 +573,35 @@ message ListUngroupedItemsRequest {
     gte: 1
     lte: 100
   }];
-  // Period filter (YYYYMM). Empty = all periods.
-  string period = 3 [(buf.validate.field).string = {
-    pattern: "^$|^\\d{6}$"
-    max_len: 6
-  }];
-  // Free-text search on item_code, item_name, item_type_code, grade_code.
+  // Free-text search on item_code, item_name, grade_code, grade_name and
+  // (when scope = GROUPED) group_code / group_name.
   string search = 4 [(buf.validate.field).string.max_len = 100];
+  // Selector for ungrouped vs grouped view. UNSPECIFIED = UNGROUPED.
+  RMGroupingScope scope = 5;
+  // Sort column. Empty defaults to item_code. group_*, sort_order and
+  // assigned_at apply only when scope = GROUPED.
+  string sort_by = 6 [(buf.validate.field).string = {
+    in: [
+      "",
+      "item_code",
+      "item_name",
+      "grade_code",
+      "item_grade",
+      "uom_code",
+      "group_code",
+      "group_name",
+      "sort_order",
+      "assigned_at"
+    ]
+  }];
+  // Sort direction. Empty defaults to asc.
+  string sort_order = 7 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
 }
 
 // ImportGroupItemsRequest bulk-adds items to a specific existing group.
@@ -627,15 +651,39 @@ message DownloadGroupItemsTemplateResponse {
   string file_name = 3;
 }
 
-// ExportUngroupedItemsRequest filters the ungrouped items export. No pagination.
+// ExportUngroupedItemsRequest filters the grouping monitor export. No pagination.
 message ExportUngroupedItemsRequest {
-  // Period filter (YYYYMM). Empty = all periods.
-  string period = 1 [(buf.validate.field).string = {
-    pattern: "^$|^\\d{6}$"
-    max_len: 6
-  }];
-  // Free-text search on item_code, item_name, item_type_code, grade_code.
+  reserved 1;
+  reserved "period";
+
+  // Free-text search on item_code, item_name, grade_code, grade_name and
+  // (when scope = GROUPED) group_code / group_name.
   string search = 2 [(buf.validate.field).string.max_len = 100];
+  // Selector for ungrouped vs grouped view. UNSPECIFIED = UNGROUPED.
+  RMGroupingScope scope = 3;
+  // Sort column. Empty defaults to item_code.
+  string sort_by = 4 [(buf.validate.field).string = {
+    in: [
+      "",
+      "item_code",
+      "item_name",
+      "grade_code",
+      "item_grade",
+      "uom_code",
+      "group_code",
+      "group_name",
+      "sort_order",
+      "assigned_at"
+    ]
+  }];
+  // Sort direction. Empty defaults to asc.
+  string sort_order = 5 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
 }
 
 // ExportUngroupedItemsResponse carries the Excel bytes + filename.
