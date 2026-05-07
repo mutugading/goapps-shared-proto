@@ -1,0 +1,315 @@
+syntax = "proto3";
+
+package iam.v1;
+
+// Note: go_package is managed by buf.gen.yaml managed mode
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// SERVICE DEFINITION
+// =============================================================================
+
+// NotificationService manages user notifications. The system is generic and
+// extensible: any backend service can call CreateNotification (via gRPC) to
+// reach a user, and notifications carry a typed action_type + opaque
+// action_payload so the frontend can render type-specific UI (download,
+// approve/reject, navigate, etc.).
+service NotificationService {
+  // CreateNotification creates a new notification for a user. Used by other
+  // services (e.g. finance worker emitting EXPORT_READY).
+  rpc CreateNotification(CreateNotificationRequest) returns (CreateNotificationResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/notifications"
+      body: "*"
+    };
+  }
+
+  // GetNotification returns a single notification owned by the caller.
+  rpc GetNotification(GetNotificationRequest) returns (GetNotificationResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/notifications/{notification_id}"};
+  }
+
+  // ListNotifications lists notifications for the authenticated user.
+  rpc ListNotifications(ListNotificationsRequest) returns (ListNotificationsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/notifications"};
+  }
+
+  // GetUnreadCount returns the count of unread notifications for the caller.
+  rpc GetUnreadCount(GetUnreadCountRequest) returns (GetUnreadCountResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/notifications/unread-count"};
+  }
+
+  // MarkAsRead marks a single notification as read.
+  rpc MarkAsRead(MarkAsReadRequest) returns (MarkAsReadResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/notifications/{notification_id}/read"
+      body: "*"
+    };
+  }
+
+  // MarkAllAsRead marks all unread notifications as read.
+  rpc MarkAllAsRead(MarkAllAsReadRequest) returns (MarkAllAsReadResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/notifications/read-all"
+      body: "*"
+    };
+  }
+
+  // ArchiveNotification archives a notification (kept until expires_at).
+  rpc ArchiveNotification(ArchiveNotificationRequest) returns (ArchiveNotificationResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/notifications/{notification_id}/archive"
+      body: "*"
+    };
+  }
+
+  // DeleteNotification hard-deletes a notification owned by the caller.
+  rpc DeleteNotification(DeleteNotificationRequest) returns (DeleteNotificationResponse) {
+    option (google.api.http) = {delete: "/api/v1/iam/notifications/{notification_id}"};
+  }
+
+  // StreamNotifications opens a server-streaming subscription for new
+  // notifications addressed to the authenticated user. The BFF bridges this
+  // stream to the browser as Server-Sent Events. The optional `since` cursor
+  // (Last-Event-ID equivalent) requests catchup for missed events.
+  rpc StreamNotifications(StreamNotificationsRequest) returns (stream StreamNotificationsResponse);
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+// NotificationType categorizes notifications. Add new values via migration
+// only — backend constraints reference these names.
+enum NotificationType {
+  NOTIFICATION_TYPE_UNSPECIFIED = 0; // Default — used as "no filter" in list.
+  NOTIFICATION_TYPE_EXPORT_READY = 1; // A generated file is ready for download.
+  NOTIFICATION_TYPE_ALERT = 2; // System alert (warning/error).
+  NOTIFICATION_TYPE_APPROVAL = 3; // Approval request awaiting recipient action.
+  NOTIFICATION_TYPE_CHAT = 4; // Direct chat or comment from another user.
+  NOTIFICATION_TYPE_REMINDER = 5; // Time-based reminder.
+  NOTIFICATION_TYPE_SYSTEM = 6; // Generic system notification.
+  NOTIFICATION_TYPE_MENTION = 7; // The user was mentioned (@username) somewhere.
+  NOTIFICATION_TYPE_ASSIGNMENT = 8; // A task/resource was assigned to the user.
+  NOTIFICATION_TYPE_ANNOUNCEMENT = 9; // Broadcast announcement to many users.
+}
+
+// NotificationSeverity drives the visual styling on the frontend.
+enum NotificationSeverity {
+  NOTIFICATION_SEVERITY_UNSPECIFIED = 0;
+  NOTIFICATION_SEVERITY_INFO = 1; // Neutral information.
+  NOTIFICATION_SEVERITY_SUCCESS = 2; // Positive outcome.
+  NOTIFICATION_SEVERITY_WARNING = 3; // Caution/attention required.
+  NOTIFICATION_SEVERITY_ERROR = 4; // Failure/error condition.
+}
+
+// NotificationActionType controls how the frontend renders the click-action.
+// The shape of action_payload is determined by this value (see proto comments
+// for each variant). Frontend MUST handle CUSTOM as info-only fallback.
+enum NotificationActionType {
+  NOTIFICATION_ACTION_TYPE_UNSPECIFIED = 0;
+  NOTIFICATION_ACTION_TYPE_NONE = 1; // No interactive action.
+  NOTIFICATION_ACTION_TYPE_NAVIGATE = 2; // payload: {"path": "/foo/bar"}.
+  NOTIFICATION_ACTION_TYPE_DOWNLOAD = 3; // payload: {"file_path", "file_name", "size_bytes", "expires_at"}.
+  NOTIFICATION_ACTION_TYPE_EXTERNAL_LINK = 4; // payload: {"url", "label"}.
+  NOTIFICATION_ACTION_TYPE_APPROVE_REJECT = 5; // payload: {"resource_type","resource_id","approve_endpoint","reject_endpoint"}.
+  NOTIFICATION_ACTION_TYPE_ACKNOWLEDGE = 6; // payload: {"ack_endpoint"}.
+  NOTIFICATION_ACTION_TYPE_MULTI_ACTION = 7; // payload: {"actions":[{"key","label","style","endpoint"}, ...]}.
+  NOTIFICATION_ACTION_TYPE_REPLY = 8; // payload: {"thread_id","preview","open_path"}.
+  NOTIFICATION_ACTION_TYPE_SNOOZE = 9; // payload: {"options_minutes":[15,60,...], "original_due_at"}.
+  NOTIFICATION_ACTION_TYPE_CUSTOM = 10; // payload: arbitrary; frontend renders info-only.
+}
+
+// NotificationStatus is the lifecycle state of a notification.
+enum NotificationStatus {
+  NOTIFICATION_STATUS_UNSPECIFIED = 0;
+  NOTIFICATION_STATUS_UNREAD = 1; // Recipient has not read yet.
+  NOTIFICATION_STATUS_READ = 2; // Recipient has marked read.
+  NOTIFICATION_STATUS_ARCHIVED = 3; // Recipient archived (kept until expires_at).
+}
+
+// =============================================================================
+// MESSAGES — Entity
+// =============================================================================
+
+// Notification represents a single notification record.
+message Notification {
+  string notification_id = 1;
+  string recipient_user_id = 2;
+  NotificationType type = 3;
+  NotificationSeverity severity = 4;
+  string title = 5;
+  string body = 6;
+  NotificationActionType action_type = 7;
+  // action_payload is a JSON-encoded string whose shape depends on
+  // action_type — see enum comments. Empty string when action_type=NONE.
+  string action_payload = 8;
+  NotificationStatus status = 9;
+  // ISO8601 timestamp, empty when not applicable.
+  string read_at = 10;
+  string archived_at = 11;
+  string expires_at = 12;
+  // source_type and source_id help correlate the notification with the
+  // emitting feature (e.g. source_type="finance.rm_cost_export", source_id=job_id).
+  string source_type = 13;
+  string source_id = 14;
+  string created_at = 15;
+  string created_by = 16;
+}
+
+// StreamNotificationsResponse is the streaming envelope. event_id is a sortable
+// resume cursor (server-generated ULID-like string) the client passes back
+// as `since` on reconnect. Heartbeat events have notification = null and
+// only carry event_id to keep proxies alive.
+message StreamNotificationsResponse {
+  string event_id = 1;
+  Notification notification = 2;
+  // is_heartbeat = true when this event has no payload — a periodic ping
+  // keeping the SSE/HTTP connection alive through buffering proxies.
+  bool is_heartbeat = 3;
+}
+
+// =============================================================================
+// MESSAGES — Create
+// =============================================================================
+
+message CreateNotificationRequest {
+  // Target recipient.
+  string recipient_user_id = 1 [(buf.validate.field).string.uuid = true];
+
+  NotificationType type = 2 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  NotificationSeverity severity = 3 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+
+  string title = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  string body = 5 [(buf.validate.field).string.max_len = 4000];
+
+  NotificationActionType action_type = 6 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  // JSON-encoded string. May be empty for action_type=NONE. Max 8KB.
+  string action_payload = 7 [(buf.validate.field).string.max_len = 8192];
+
+  // Optional ISO8601 expiry; missing/empty means no auto-cleanup.
+  string expires_at = 8 [(buf.validate.field).string.max_len = 40];
+
+  // Source correlation (free-form; recommended pattern: "{service}.{feature}").
+  string source_type = 9 [(buf.validate.field).string.max_len = 50];
+  string source_id = 10 [(buf.validate.field).string.max_len = 100];
+}
+
+message CreateNotificationResponse {
+  common.v1.BaseResponse base = 1;
+  Notification data = 2;
+}
+
+// =============================================================================
+// MESSAGES — Get
+// =============================================================================
+
+message GetNotificationRequest {
+  string notification_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetNotificationResponse {
+  common.v1.BaseResponse base = 1;
+  Notification data = 2;
+}
+
+// =============================================================================
+// MESSAGES — List
+// =============================================================================
+
+message ListNotificationsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
+  // Filter by status (UNSPECIFIED = all).
+  NotificationStatus status = 3;
+  // Filter by type (UNSPECIFIED = all).
+  NotificationType type = 4;
+  string sort_order = 5 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
+}
+
+message ListNotificationsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Notification data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// =============================================================================
+// MESSAGES — Unread Count
+// =============================================================================
+
+message GetUnreadCountRequest {}
+
+message GetUnreadCountResponse {
+  common.v1.BaseResponse base = 1;
+  int64 unread_count = 2;
+}
+
+// =============================================================================
+// MESSAGES — Mark As Read / All Read
+// =============================================================================
+
+message MarkAsReadRequest {
+  string notification_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message MarkAsReadResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message MarkAllAsReadRequest {}
+
+message MarkAllAsReadResponse {
+  common.v1.BaseResponse base = 1;
+  int64 affected_count = 2;
+}
+
+// =============================================================================
+// MESSAGES — Archive / Delete
+// =============================================================================
+
+message ArchiveNotificationRequest {
+  string notification_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message ArchiveNotificationResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message DeleteNotificationRequest {
+  string notification_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message DeleteNotificationResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+// =============================================================================
+// MESSAGES — Stream
+// =============================================================================
+
+message StreamNotificationsRequest {
+  // Optional cursor for catchup; empty string starts from "now".
+  // Format mirrors StreamNotificationsResponse.event_id.
+  string since = 1 [(buf.validate.field).string.max_len = 100];
+}

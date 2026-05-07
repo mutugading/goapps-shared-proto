@@ -467,8 +467,29 @@ service RMCostService {
   }
 
   // ExportRMCosts exports cost rows matching the filter to a single-sheet Excel.
+  // SYNCHRONOUS variant — returns the bytes directly. Suitable only for small
+  // result sets. Prefer RequestRMCostExport for production use.
   rpc ExportRMCosts(ExportRMCostsRequest) returns (ExportRMCostsResponse) {
     option (google.api.http) = {get: "/api/v1/finance/rm-costs/export"};
+  }
+
+  // GetExportDownloadURL returns a short-lived presigned URL for downloading the
+  // xlsx artifact produced by a completed rm_cost_export job. The caller must
+  // own the job (job_execution.created_by matches the authenticated user).
+  rpc GetExportDownloadURL(GetExportDownloadURLRequest) returns (GetExportDownloadURLResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/rm-costs/exports/{job_id}/download"};
+  }
+
+  // RequestRMCostExport queues an asynchronous export job. The worker renders a
+  // 2-sheet Excel (Header + Detail) covering the filtered rows (or the entire
+  // period when no further filter is set), uploads it to MinIO, and emits an
+  // EXPORT_READY notification with a DOWNLOAD action to the requesting user.
+  // Returns immediately with the job_id so the UI can show progress.
+  rpc RequestRMCostExport(RequestRMCostExportRequest) returns (RequestRMCostExportResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/rm-costs/request-export"
+      body: "*"
+    };
   }
 
   // V2: ListCostDetails returns per-item snapshot rows for a cost row.
@@ -588,6 +609,58 @@ message ExportRMCostsResponse {
   bytes file_content = 2;
   // Suggested filename.
   string file_name = 3;
+}
+
+// RequestRMCostExportRequest queues an async export job. Same filters as
+// ExportRMCostsRequest; reused for symmetry between sync + async variants.
+message RequestRMCostExportRequest {
+  // Period filter (YYYYMM). Required for async export — files are namespaced
+  // by period in MinIO and the user almost always exports one period at a time.
+  string period = 1 [(buf.validate.field).string.pattern = "^\\d{6}$"];
+  // Filter by RM type. UNSPECIFIED = all types in the period.
+  RMCostType rm_type = 2;
+  // Optional group scope.
+  optional string group_head_id = 3 [(buf.validate.field).string.uuid = true];
+  // Free-text search on rm_code + rm_name.
+  string search = 4 [(buf.validate.field).string.max_len = 100];
+}
+
+// RequestRMCostExportResponse acknowledges the queued job.
+message RequestRMCostExportResponse {
+  common.v1.BaseResponse base = 1;
+  ExportJobInfo data = 2;
+}
+
+// GetExportDownloadURLRequest identifies the export job whose artifact the
+// caller wants to download.
+message GetExportDownloadURLRequest {
+  string job_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// GetExportDownloadURLResponse carries a presigned download URL.
+message GetExportDownloadURLResponse {
+  common.v1.BaseResponse base = 1;
+  ExportDownloadInfo data = 2;
+}
+
+// ExportDownloadInfo carries the presigned URL and suggested filename for the UI.
+message ExportDownloadInfo {
+  // Short-lived presigned URL the browser can redirect to.
+  string url = 1;
+  // Suggested filename (Content-Disposition).
+  string file_name = 2;
+  // ISO8601 expiry for the presigned URL.
+  string expires_at = 3;
+}
+
+// ExportJobInfo summarizes a freshly-queued export job for the UI.
+message ExportJobInfo {
+  // job_execution.job_id (UUID).
+  string job_id = 1;
+  // human-readable code (e.g. "RM_COST_EX-202604-001").
+  string job_code = 2;
+  // initial status, typically "QUEUED".
+  string status = 3;
 }
 
 // Response carries the distinct set of calculated periods.
