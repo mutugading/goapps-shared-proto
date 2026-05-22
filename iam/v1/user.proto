@@ -135,6 +135,27 @@ service UserService {
       body: "*"
     };
   }
+
+  // AssignUserCompanyMapping assigns a company mapping to a user.
+  rpc AssignUserCompanyMapping(AssignUserCompanyMappingRequest) returns (AssignUserCompanyMappingResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/users/{user_id}/company-mappings"
+      body: "*"
+    };
+  }
+
+  // RemoveUserCompanyMapping removes a company mapping from a user.
+  rpc RemoveUserCompanyMapping(RemoveUserCompanyMappingRequest) returns (RemoveUserCompanyMappingResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/users/{user_id}/company-mappings/remove"
+      body: "*"
+    };
+  }
+
+  // GetUserCompanyMappings lists all company mappings assigned to a user.
+  rpc GetUserCompanyMappings(GetUserCompanyMappingsRequest) returns (GetUserCompanyMappingsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/users/{user_id}/company-mappings"};
+  }
 }
 
 // =============================================================================
@@ -159,6 +180,24 @@ message User {
   optional string last_login_at = 7;
   // Audit information.
   common.v1.AuditInfo audit = 8;
+
+  // Employee level reference (optional).
+  string employee_level_id = 9;
+  // Employee level code (denormalized for read).
+  string employee_level_code = 10;
+  // Employee group reference (optional).
+  string employee_group_id = 11;
+  // Employee group code (denormalized for read).
+  string employee_group_code = 12;
+
+  // Primary company-mapping reference (optional).
+  string primary_company_mapping_id = 13;
+  // Primary company-mapping denormalized fields (empty if no primary mapping).
+  string primary_company_name = 14;
+  string primary_division_name = 15;
+  string primary_department_name = 16;
+  // Primary section name (empty when the primary mapping has no section).
+  string primary_section_name = 17;
 }
 
 // UserDetail represents employee details.
@@ -271,6 +310,12 @@ message CreateUserRequest {
   optional string address = 12 [(buf.validate.field).string.max_len = 500];
   // Initial role IDs to assign.
   repeated string role_ids = 13;
+  // Employee level ID to assign (optional, UUID).
+  optional string employee_level_id = 14 [(buf.validate.field).string.uuid = true];
+  // Employee group ID to assign (optional, UUID).
+  optional string employee_group_id = 15 [(buf.validate.field).string.uuid = true];
+  // Primary company-mapping ID to assign on creation (optional, UUID).
+  optional string company_mapping_id = 16 [(buf.validate.field).string.uuid = true];
 }
 
 // CreateUserResponse is the response for creating a user.
@@ -336,6 +381,12 @@ message UpdateUserRequest {
   optional bool is_active = 4;
   // Unlock account (optional).
   optional bool unlock_account = 5;
+  // Employee level ID (optional, UUID; clears when omitted from request body).
+  optional string employee_level_id = 6 [(buf.validate.field).string.uuid = true];
+  // Employee group ID (optional, UUID).
+  optional string employee_group_id = 7 [(buf.validate.field).string.uuid = true];
+  // Primary company-mapping ID (optional, UUID).
+  optional string company_mapping_id = 8 [(buf.validate.field).string.uuid = true];
 }
 
 // UpdateUserResponse is the response for updating a user.
@@ -680,4 +731,60 @@ message UploadProfilePictureResponse {
   common.v1.BaseResponse base = 1;
   // The public URL of the uploaded profile picture.
   string profile_picture_url = 2;
+}
+
+// =============================================================================
+// MESSAGES - User Company Mapping Assignment
+// =============================================================================
+
+// UserCompanyMappingRef is a thin reference to a CompanyMapping with the
+// denormalized hierarchy and the user-junction is_primary flag for display.
+message UserCompanyMappingRef {
+  string company_mapping_id = 1;
+  string code = 2;
+  string name = 3;
+  string company_name = 4;
+  string division_name = 5;
+  string department_name = 6;
+  // Section name (empty if mapping has no section).
+  string section_name = 7;
+  bool is_primary = 8;
+}
+
+// AssignUserCompanyMappingRequest assigns a mapping to a user.
+message AssignUserCompanyMappingRequest {
+  string user_id = 1 [(buf.validate.field).string.uuid = true];
+  string company_mapping_id = 2 [(buf.validate.field).string.uuid = true];
+  // If true, the mapping becomes the user's primary mapping (any existing
+  // primary is unset transactionally).
+  bool is_primary = 3;
+}
+
+// AssignUserCompanyMappingResponse is the response for assigning a mapping.
+message AssignUserCompanyMappingResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+// RemoveUserCompanyMappingRequest removes a mapping from a user.
+message RemoveUserCompanyMappingRequest {
+  string user_id = 1 [(buf.validate.field).string.uuid = true];
+  string company_mapping_id = 2 [(buf.validate.field).string.uuid = true];
+}
+
+// RemoveUserCompanyMappingResponse is the response for removing a mapping.
+message RemoveUserCompanyMappingResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+// GetUserCompanyMappingsRequest fetches the mappings assigned to a user.
+message GetUserCompanyMappingsRequest {
+  string user_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// GetUserCompanyMappingsResponse contains a user's mapping list.
+message GetUserCompanyMappingsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated UserCompanyMappingRef data = 2;
+  // Primary mapping ID (empty if user has no primary mapping).
+  string primary_company_mapping_id = 3;
 }

@@ -212,6 +212,12 @@ service CostRouteService {
   rpc ListLinkedRequests(ListLinkedRequestsRequest) returns (ListLinkedRequestsResponse) {
     option (google.api.http) = {get: "/api/v1/finance/routes/{head_id}/linked-requests"};
   }
+  rpc CreateRouteFromProduct(CreateRouteFromProductRequest) returns (CreateRouteFromProductResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/routes/from-product"
+      body: "*"
+    };
+  }
 }
 
 message DuplicateRouteRequest {
@@ -244,4 +250,14 @@ message LinkedRequest {
 message ListLinkedRequestsResponse {
   common.v1.BaseResponse base = 1;
   repeated LinkedRequest data = 2;
+}
+
+message CreateRouteFromProductRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+  int64 linked_request_id = 2; // optional, atomically links the request on success.
+  int32 cyl_type_id = 3;
+}
+message CreateRouteFromProductResponse {
+  common.v1.BaseResponse base = 1;
+  int64 head_id = 2;
 }

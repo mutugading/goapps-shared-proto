@@ -1,0 +1,285 @@
+syntax = "proto3";
+
+package finance.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// MESSAGES — Entity
+// =============================================================================
+
+// CostProductParameterValue is a single param value bound to a product.
+// Exactly one of value_numeric / value_text / value_flag is populated per row,
+// matching the data_type of the referenced parameter.
+message CostProductParameterValue {
+  int64 value_id = 1;
+  int64 product_sys_id = 2;
+  // Parameter UUID from mst_parameter.id.
+  string param_id = 3;
+  // Resolved metadata (read-only join from mst_parameter).
+  string param_code = 4;
+  string param_name = 5;
+  string param_short_name = 6;
+  // NUMBER / TEXT / BOOLEAN — matches mst_parameter.data_type.
+  string data_type = 7;
+  string param_category = 8;
+  string uom_code = 9;
+  string owner_department = 10;
+  bool is_required_for_costing = 11;
+  string lookup_master_code = 12;
+  int32 display_order = 13;
+  string display_group = 14;
+  // Value columns — only one is populated per row.
+  string value_numeric = 20;
+  string value_text = 21;
+  bool value_flag = 22;
+  // Tracks who filled the value last.
+  string filled_at = 30;
+  string filled_by = 31;
+}
+
+// RequiredParamEntry surfaces a required mst_parameter row that may or may not
+// yet have a value bound for the product (used by ListProductRequiredParams).
+message RequiredParamEntry {
+  string param_id = 1;
+  string param_code = 2;
+  string param_name = 3;
+  string param_short_name = 4;
+  string data_type = 5;
+  string param_category = 6;
+  string uom_code = 7;
+  string owner_department = 8;
+  bool is_required_for_costing = 9;
+  string lookup_master_code = 10;
+  int32 display_order = 11;
+  string display_group = 12;
+  // Existing value (zero/empty when not yet bound).
+  bool has_value = 20;
+  string value_numeric = 21;
+  string value_text = 22;
+  bool value_flag = 23;
+  string filled_at = 30;
+  string filled_by = 31;
+}
+
+// =============================================================================
+// MESSAGES — List Required Params (per product)
+// =============================================================================
+
+message ListProductRequiredParamsRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+  // When TRUE, only is_required_for_costing rows are returned. Default FALSE = all.
+  bool required_only = 2;
+}
+
+message ListProductRequiredParamsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated RequiredParamEntry data = 2;
+}
+
+// =============================================================================
+// MESSAGES — Upsert a single value
+// =============================================================================
+
+message UpsertProductParamValueRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+  string param_id = 2 [(buf.validate.field).string.uuid = true];
+  // Value as string (decimals as text for precision). One of these must be set.
+  string value_numeric = 3;
+  string value_text = 4;
+  // value_flag is a real bool — we cannot distinguish "unset" from FALSE, so
+  // callers must use has_value_flag to opt in.
+  bool value_flag = 5;
+  bool has_value_flag = 6;
+}
+
+message UpsertProductParamValueResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductParameterValue data = 2;
+}
+
+// =============================================================================
+// MESSAGES — Batch upsert (Save All from the Parameters tab)
+// =============================================================================
+
+message UpsertProductParamValuesBatchRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+  repeated UpsertProductParamValueRequest values = 2 [(buf.validate.field).repeated.min_items = 1];
+}
+
+message UpsertProductParamValuesBatchResponse {
+  common.v1.BaseResponse base = 1;
+  int32 upserted_count = 2;
+  int32 failed_count = 3;
+  repeated string failed_param_codes = 4;
+}
+
+// =============================================================================
+// MESSAGES — Delete a value (clear back to "unbound")
+// =============================================================================
+
+message DeleteProductParamValueRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+  string param_id = 2 [(buf.validate.field).string.uuid = true];
+}
+
+message DeleteProductParamValueResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+// =============================================================================
+// MESSAGES — Missing required params check
+// =============================================================================
+
+message CheckMissingRequiredParamsRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+}
+
+message MissingParam {
+  string param_id = 1;
+  string param_code = 2;
+  string param_name = 3;
+  string display_group = 4;
+}
+
+message CheckMissingRequiredParamsResponse {
+  common.v1.BaseResponse base = 1;
+  // Empty slice = all required params are filled.
+  repeated MissingParam data = 2;
+}
+
+// =============================================================================
+// MESSAGES — Applicability (CAPP_) per-product param subset
+// =============================================================================
+
+message AvailableParamEntry {
+  string param_id = 1;
+  string param_code = 2;
+  string param_name = 3;
+  string param_short_name = 4;
+  string data_type = 5;
+  string param_category = 6;
+  string uom_code = 7;
+  string owner_department = 8;
+  bool is_required_for_costing = 9; // global default
+  string lookup_master_code = 10;
+  int32 display_order = 11;
+  string display_group = 12;
+}
+
+message ListAvailableParamsRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+}
+
+message ListAvailableParamsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated AvailableParamEntry data = 2;
+}
+
+message AddApplicableParamRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+  string param_id = 2 [(buf.validate.field).string.uuid = true];
+  bool is_required = 3;
+  // 0 means inherit mst_parameter.display_order.
+  int32 display_order = 4 [(buf.validate.field).int32.gte = 0];
+}
+
+message AddApplicableParamResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message RemoveApplicableParamRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+  string param_id = 2 [(buf.validate.field).string.uuid = true];
+}
+
+message RemoveApplicableParamResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message UpdateApplicableParamRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+  string param_id = 2 [(buf.validate.field).string.uuid = true];
+  optional bool is_required = 3;
+  optional int32 display_order = 4 [(buf.validate.field).int32.gte = 0];
+}
+
+message UpdateApplicableParamResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+// =============================================================================
+// SERVICE
+// =============================================================================
+
+// CostProductParameterService manages per-product static parameter values.
+service CostProductParameterService {
+  // ListProductRequiredParams returns the parameter form contents for a
+  // product — every active mst_parameter row (optionally filtered to
+  // is_required_for_costing) joined with the existing CPP value when present.
+  rpc ListProductRequiredParams(ListProductRequiredParamsRequest) returns (ListProductRequiredParamsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-product-parameters/products/{product_sys_id}"};
+  }
+
+  // UpsertProductParamValue creates or updates a single param value for a product.
+  rpc UpsertProductParamValue(UpsertProductParamValueRequest) returns (UpsertProductParamValueResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-parameters/upsert"
+      body: "*"
+    };
+  }
+
+  // UpsertProductParamValuesBatch upserts multiple values atomically.
+  rpc UpsertProductParamValuesBatch(UpsertProductParamValuesBatchRequest) returns (UpsertProductParamValuesBatchResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-parameters/upsert-batch"
+      body: "*"
+    };
+  }
+
+  // DeleteProductParamValue clears a single value (back to unbound state).
+  rpc DeleteProductParamValue(DeleteProductParamValueRequest) returns (DeleteProductParamValueResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-parameters/delete"
+      body: "*"
+    };
+  }
+
+  // CheckMissingRequiredParams returns required params with no value yet.
+  // Used by the request state machine to gate PARAMETER_PENDING → PARAMETER_COMPLETE.
+  rpc CheckMissingRequiredParams(CheckMissingRequiredParamsRequest) returns (CheckMissingRequiredParamsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-product-parameters/products/{product_sys_id}/missing"};
+  }
+
+  // ListAvailableParams returns mst_parameter rows NOT yet applicable for the
+  // product — feeds the "Add parameter" picker on the Parameters tab.
+  rpc ListAvailableParams(ListAvailableParamsRequest) returns (ListAvailableParamsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-product-parameters/products/{product_sys_id}/available"};
+  }
+
+  // AddApplicableParam marks a parameter as applicable to the product.
+  rpc AddApplicableParam(AddApplicableParamRequest) returns (AddApplicableParamResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-parameters/applicable/add"
+      body: "*"
+    };
+  }
+
+  // RemoveApplicableParam removes a parameter from a product (deletes value too).
+  rpc RemoveApplicableParam(RemoveApplicableParamRequest) returns (RemoveApplicableParamResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-parameters/applicable/remove"
+      body: "*"
+    };
+  }
+
+  // UpdateApplicableParam patches per-product override fields (is_required, display_order).
+  rpc UpdateApplicableParam(UpdateApplicableParamRequest) returns (UpdateApplicableParamResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-parameters/applicable/update"
+      body: "*"
+    };
+  }
+}

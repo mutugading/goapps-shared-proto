@@ -1,0 +1,111 @@
+syntax = "proto3";
+
+package finance.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// CostAttachment — PRD Phase A §7.1.10 (CA_).
+// Generic file attachment that hangs off either a request OR a comment (XOR).
+// Storage: MinIO via finance.internal/infrastructure/storage. The proto carries
+// raw bytes on upload (max 25MB per FR-5); download is via presigned URL.
+// =============================================================================
+
+message CostAttachment {
+  int64 attachment_id = 1;
+  int64 request_id = 2; // set when request-level
+  int64 comment_id = 3; // set when comment-level
+  string filename = 4;
+  string mime_type = 5;
+  int64 size_bytes = 6;
+  string storage_key = 7;
+  string uploaded_by = 8;
+  string uploaded_at = 9;
+}
+
+// =============================================================================
+// Upload
+// =============================================================================
+
+message UploadCostAttachmentRequest {
+  // Exactly one of (request_id, comment_id) must be > 0.
+  int64 request_id = 1;
+  int64 comment_id = 2;
+  string filename = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+  string mime_type = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+  // Max 25 MB per FR-5.
+  bytes file_content = 5 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 26214400
+  }];
+}
+
+message UploadCostAttachmentResponse {
+  common.v1.BaseResponse base = 1;
+  CostAttachment data = 2;
+}
+
+message ListCostAttachmentsByRequestRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+
+message ListCostAttachmentsByRequestResponse {
+  common.v1.BaseResponse base = 1;
+  repeated CostAttachment data = 2;
+}
+
+message ListCostAttachmentsByCommentRequest {
+  int64 comment_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+
+message ListCostAttachmentsByCommentResponse {
+  common.v1.BaseResponse base = 1;
+  repeated CostAttachment data = 2;
+}
+
+message GetCostAttachmentDownloadURLRequest {
+  int64 attachment_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+
+message GetCostAttachmentDownloadURLResponse {
+  common.v1.BaseResponse base = 1;
+  string url = 2;
+  int32 valid_seconds = 3;
+}
+
+message DeleteCostAttachmentRequest {
+  int64 attachment_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+
+message DeleteCostAttachmentResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+service CostAttachmentService {
+  rpc UploadCostAttachment(UploadCostAttachmentRequest) returns (UploadCostAttachmentResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-attachments/upload"
+      body: "*"
+    };
+  }
+  rpc ListCostAttachmentsByRequest(ListCostAttachmentsByRequestRequest) returns (ListCostAttachmentsByRequestResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-product-requests/{request_id}/attachments"};
+  }
+  rpc ListCostAttachmentsByComment(ListCostAttachmentsByCommentRequest) returns (ListCostAttachmentsByCommentResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-request-comments/{comment_id}/attachments"};
+  }
+  rpc GetCostAttachmentDownloadURL(GetCostAttachmentDownloadURLRequest) returns (GetCostAttachmentDownloadURLResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-attachments/{attachment_id}/download-url"};
+  }
+  rpc DeleteCostAttachment(DeleteCostAttachmentRequest) returns (DeleteCostAttachmentResponse) {
+    option (google.api.http) = {delete: "/api/v1/finance/cost-attachments/{attachment_id}"};
+  }
+}

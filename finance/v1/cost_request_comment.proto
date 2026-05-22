@@ -1,0 +1,169 @@
+syntax = "proto3";
+
+package finance.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// CostRequestComment — PRD Phase A §7.1.7 (CRC_) + §7.1.8 (CCEH_) + §7.1.9 (CRM_).
+// Rich-text comment thread on a product request. body_richtext is a JSON tree
+// (Tiptap/Lexical) serialized as a string on the wire; body_plaintext is the
+// searchable/notification copy. @mentions are extracted from body_plaintext
+// (pattern @[username]) and persisted to cost_request_mention.
+// =============================================================================
+
+message CostRequestComment {
+  int64 comment_id = 1;
+  int64 request_id = 2;
+  int64 parent_comment_id = 3;
+  string author_user_id = 4;
+  // JSON serialized Tiptap/Lexical document.
+  string body_richtext = 5;
+  string body_plaintext = 6;
+  bool is_edited = 7;
+  bool is_hidden = 8;
+  string hidden_reason = 9;
+  string created_at = 10;
+  string updated_at = 11;
+  // Mentioned user_ids extracted from body_plaintext on create/update.
+  repeated string mentioned_user_ids = 12;
+}
+
+message CostCommentEditHistory {
+  int64 edit_id = 1;
+  int64 comment_id = 2;
+  string body_richtext = 3;
+  string body_plaintext = 4;
+  string edited_by = 5;
+  string edited_at = 6;
+}
+
+// =============================================================================
+// CRUD
+// =============================================================================
+
+message CreateCostRequestCommentRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+  int64 parent_comment_id = 2;
+  string body_richtext = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200000
+  }];
+  string body_plaintext = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100000
+  }];
+  // Optional @mentions extracted client-side; backend re-extracts to be safe.
+  repeated string mentioned_user_ids = 5;
+}
+
+message CreateCostRequestCommentResponse {
+  common.v1.BaseResponse base = 1;
+  CostRequestComment data = 2;
+}
+
+message UpdateCostRequestCommentRequest {
+  int64 comment_id = 1 [(buf.validate.field).int64.gte = 1];
+  string body_richtext = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200000
+  }];
+  string body_plaintext = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100000
+  }];
+  repeated string mentioned_user_ids = 4;
+}
+
+message UpdateCostRequestCommentResponse {
+  common.v1.BaseResponse base = 1;
+  CostRequestComment data = 2;
+}
+
+message HideCostRequestCommentRequest {
+  int64 comment_id = 1 [(buf.validate.field).int64.gte = 1];
+  string hidden_reason = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 1000
+  }];
+}
+
+message HideCostRequestCommentResponse {
+  common.v1.BaseResponse base = 1;
+  CostRequestComment data = 2;
+}
+
+message UnhideCostRequestCommentRequest {
+  int64 comment_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+
+message UnhideCostRequestCommentResponse {
+  common.v1.BaseResponse base = 1;
+  CostRequestComment data = 2;
+}
+
+message DeleteCostRequestCommentRequest {
+  int64 comment_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+
+message DeleteCostRequestCommentResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message ListCostRequestCommentsRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+  // When true, include CRC_is_hidden = true (admin view). Default false.
+  bool include_hidden = 2;
+}
+
+message ListCostRequestCommentsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated CostRequestComment data = 2;
+}
+
+message ListCostCommentEditHistoryRequest {
+  int64 comment_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+
+message ListCostCommentEditHistoryResponse {
+  common.v1.BaseResponse base = 1;
+  repeated CostCommentEditHistory data = 2;
+}
+
+service CostRequestCommentService {
+  rpc CreateCostRequestComment(CreateCostRequestCommentRequest) returns (CreateCostRequestCommentResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-request-comments"
+      body: "*"
+    };
+  }
+  rpc UpdateCostRequestComment(UpdateCostRequestCommentRequest) returns (UpdateCostRequestCommentResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/finance/cost-request-comments/{comment_id}"
+      body: "*"
+    };
+  }
+  rpc HideCostRequestComment(HideCostRequestCommentRequest) returns (HideCostRequestCommentResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-request-comments/{comment_id}/hide"
+      body: "*"
+    };
+  }
+  rpc UnhideCostRequestComment(UnhideCostRequestCommentRequest) returns (UnhideCostRequestCommentResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-request-comments/{comment_id}/unhide"
+      body: "*"
+    };
+  }
+  rpc DeleteCostRequestComment(DeleteCostRequestCommentRequest) returns (DeleteCostRequestCommentResponse) {
+    option (google.api.http) = {delete: "/api/v1/finance/cost-request-comments/{comment_id}"};
+  }
+  rpc ListCostRequestComments(ListCostRequestCommentsRequest) returns (ListCostRequestCommentsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-product-requests/{request_id}/comments"};
+  }
+  rpc ListCostCommentEditHistory(ListCostCommentEditHistoryRequest) returns (ListCostCommentEditHistoryResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-request-comments/{comment_id}/edit-history"};
+  }
+}

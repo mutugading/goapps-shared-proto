@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package finance.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// CostNotification — PRD Phase A §7.1.12 (CN_) + §7.1.13 (CNP_).
+// In-app notification + read-state management. Email dispatch is a downstream
+// concern handled by a worker that consumes cn_email_sent_at IS NULL rows.
+// =============================================================================
+
+message CostNotification {
+  int64 notification_id = 1;
+  string recipient_user_id = 2;
+  // STATUS_CHANGE | MENTION | ASSIGNED | FEASIBILITY | COMMENT_ADDED |
+  // ROUTING_PROMOTED | REQUEST_REJECTED | REQUEST_CLOSED.
+  string trigger_type = 3;
+  int64 request_id = 4; // 0 when not tied to a specific request
+  string payload = 5; // JSON-stringified
+  bool is_read = 6;
+  string email_sent_at = 7;
+  string created_at = 8;
+}
+
+message ListMyCostNotificationsRequest {
+  // When true, only unread; else include all.
+  bool unread_only = 1;
+  common.v1.PaginationRequest pagination = 2;
+}
+
+message ListMyCostNotificationsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated CostNotification data = 2;
+  common.v1.PaginationResponse pagination = 3;
+  int32 unread_count = 4;
+}
+
+message GetMyCostNotificationUnreadCountRequest {}
+
+message GetMyCostNotificationUnreadCountResponse {
+  common.v1.BaseResponse base = 1;
+  int32 unread_count = 2;
+}
+
+message MarkCostNotificationReadRequest {
+  int64 notification_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+
+message MarkCostNotificationReadResponse {
+  common.v1.BaseResponse base = 1;
+  CostNotification data = 2;
+}
+
+message MarkAllMyCostNotificationsReadRequest {}
+
+message MarkAllMyCostNotificationsReadResponse {
+  common.v1.BaseResponse base = 1;
+  int32 updated_count = 2;
+}
+
+service CostNotificationService {
+  rpc ListMyCostNotifications(ListMyCostNotificationsRequest) returns (ListMyCostNotificationsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-notifications"};
+  }
+  rpc GetMyCostNotificationUnreadCount(GetMyCostNotificationUnreadCountRequest) returns (GetMyCostNotificationUnreadCountResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-notifications/unread-count"};
+  }
+  rpc MarkCostNotificationRead(MarkCostNotificationReadRequest) returns (MarkCostNotificationReadResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-notifications/{notification_id}/read"
+      body: "*"
+    };
+  }
+  rpc MarkAllMyCostNotificationsRead(MarkAllMyCostNotificationsReadRequest) returns (MarkAllMyCostNotificationsReadResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-notifications/mark-all-read"
+      body: "*"
+    };
+  }
+}

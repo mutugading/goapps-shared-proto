@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package finance.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// CostPaperTubeType — PRD Phase A (CPTT_).
+// Lookup used by cost_product_spec for paper-tube selection.
+// =============================================================================
+
+message CostPaperTubeType {
+  int32 paper_tube_type_id = 1;
+  string code = 2;
+  string display_name = 3;
+  bool is_active = 4;
+}
+
+message ListCostPaperTubeTypesRequest {
+  string search = 1 [(buf.validate.field).string.max_len = 200];
+  string active_filter = 2 [(buf.validate.field).string = {
+    in: [
+      "",
+      "all",
+      "active",
+      "inactive"
+    ]
+  }];
+  common.v1.PaginationRequest pagination = 3;
+}
+
+message ListCostPaperTubeTypesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated CostPaperTubeType data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+service CostPaperTubeTypeService {
+  rpc ListCostPaperTubeTypes(ListCostPaperTubeTypesRequest) returns (ListCostPaperTubeTypesResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-paper-tube-types"};
+  }
+}

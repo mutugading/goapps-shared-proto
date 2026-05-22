@@ -1,0 +1,120 @@
+syntax = "proto3";
+
+package finance.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// CostProductType — PRD Phase B §7.2.1 (CPT_).
+// Master of product types (POY/PTY/TTY/etc) that drives auto-generated product
+// code prefix. DB columns: "CPT_type_id", "CPT_type_code", "CPT_type_name", ...
+// Proto/API surface uses plain snake_case (no CPT_ prefix on the wire).
+// =============================================================================
+
+message CostProductType {
+  int32 type_id = 1;
+  string type_code = 2; // max 5 chars uppercase
+  string type_name = 3;
+  bool is_active = 4;
+  common.v1.AuditInfo audit = 16;
+}
+
+message CreateCostProductTypeRequest {
+  string type_code = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 5
+    pattern: "^[A-Z][A-Z0-9]*$"
+  }];
+  string type_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+}
+
+message CreateCostProductTypeResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductType data = 2;
+}
+
+message GetCostProductTypeRequest {
+  int32 type_id = 1 [(buf.validate.field).int32.gte = 1];
+}
+
+message GetCostProductTypeResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductType data = 2;
+}
+
+message UpdateCostProductTypeRequest {
+  int32 type_id = 1 [(buf.validate.field).int32.gte = 1];
+  string type_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+  bool is_active = 3;
+}
+
+message UpdateCostProductTypeResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductType data = 2;
+}
+
+message ListCostProductTypesRequest {
+  // Free-text search across type_code and type_name (case-insensitive).
+  string search = 1 [(buf.validate.field).string.max_len = 200];
+  // "all" | "active" | "inactive" — empty defaults to "all".
+  string active_filter = 2 [(buf.validate.field).string = {
+    in: [
+      "",
+      "all",
+      "active",
+      "inactive"
+    ]
+  }];
+  common.v1.PaginationRequest pagination = 3;
+  string sort_by = 4 [(buf.validate.field).string = {
+    in: [
+      "",
+      "type_code",
+      "type_name",
+      "created_at"
+    ]
+  }];
+  string sort_order = 5 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
+}
+
+message ListCostProductTypesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated CostProductType data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// CostProductTypeService — CRUD master for canonical product types.
+service CostProductTypeService {
+  rpc CreateCostProductType(CreateCostProductTypeRequest) returns (CreateCostProductTypeResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-types"
+      body: "*"
+    };
+  }
+  rpc GetCostProductType(GetCostProductTypeRequest) returns (GetCostProductTypeResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-product-types/{type_id}"};
+  }
+  rpc UpdateCostProductType(UpdateCostProductTypeRequest) returns (UpdateCostProductTypeResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/finance/cost-product-types/{type_id}"
+      body: "*"
+    };
+  }
+  rpc ListCostProductTypes(ListCostProductTypesRequest) returns (ListCostProductTypesResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-product-types"};
+  }
+}

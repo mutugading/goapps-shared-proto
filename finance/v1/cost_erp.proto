@@ -1,0 +1,135 @@
+syntax = "proto3";
+
+package finance.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// CostErp{Item,Grade,Shade} — PRD Phase B §7.3.
+// READ-ONLY replicas of Oracle ERP master data. Sync mechanism (CDC / scheduled
+// job) is infrastructure-level and not exposed here. Only Get / List for lookup
+// pickers (ProductMaster ERP linkage, BOM Store-Rate components, Phase A shade
+// autocomplete). NO create/update/delete RPCs.
+// =============================================================================
+
+message CostErpItem {
+  int64 item_id = 1;
+  string item_code = 2;
+  string item_name = 3;
+  string item_type = 4; // POY/PTY/etc
+  bool is_active = 5;
+  string synced_at = 6;
+}
+
+message CostErpGrade {
+  int32 grade_id = 1;
+  string grade_code = 2;
+  string grade_name = 3;
+  bool is_active = 4;
+  string synced_at = 5;
+}
+
+message CostErpShade {
+  int32 shade_id = 1;
+  string shade_code = 2;
+  string shade_name = 3;
+  bool is_active = 4;
+  string synced_at = 5;
+}
+
+// =============================================================================
+// ERP Item
+// =============================================================================
+
+message ListCostErpItemsRequest {
+  string search = 1 [(buf.validate.field).string.max_len = 200]; // matches code OR name
+  string item_type = 2 [(buf.validate.field).string.max_len = 10];
+  string active_filter = 3 [(buf.validate.field).string = {
+    in: [
+      "",
+      "all",
+      "active",
+      "inactive"
+    ]
+  }];
+  common.v1.PaginationRequest pagination = 4;
+}
+
+message ListCostErpItemsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated CostErpItem data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+message GetCostErpItemRequest {
+  int64 item_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+
+message GetCostErpItemResponse {
+  common.v1.BaseResponse base = 1;
+  CostErpItem data = 2;
+}
+
+// =============================================================================
+// ERP Grade
+// =============================================================================
+
+message ListCostErpGradesRequest {
+  string search = 1 [(buf.validate.field).string.max_len = 200];
+  string active_filter = 2 [(buf.validate.field).string = {
+    in: [
+      "",
+      "all",
+      "active",
+      "inactive"
+    ]
+  }];
+  common.v1.PaginationRequest pagination = 3;
+}
+
+message ListCostErpGradesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated CostErpGrade data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// =============================================================================
+// ERP Shade
+// =============================================================================
+
+message ListCostErpShadesRequest {
+  string search = 1 [(buf.validate.field).string.max_len = 200];
+  string active_filter = 2 [(buf.validate.field).string = {
+    in: [
+      "",
+      "all",
+      "active",
+      "inactive"
+    ]
+  }];
+  common.v1.PaginationRequest pagination = 3;
+}
+
+message ListCostErpShadesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated CostErpShade data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// CostErpLookupService — read-only lookup for ERP replica tables.
+service CostErpLookupService {
+  rpc ListCostErpItems(ListCostErpItemsRequest) returns (ListCostErpItemsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-erp/items"};
+  }
+  rpc GetCostErpItem(GetCostErpItemRequest) returns (GetCostErpItemResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-erp/items/{item_id}"};
+  }
+  rpc ListCostErpGrades(ListCostErpGradesRequest) returns (ListCostErpGradesResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-erp/grades"};
+  }
+  rpc ListCostErpShades(ListCostErpShadesRequest) returns (ListCostErpShadesResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-erp/shades"};
+  }
+}

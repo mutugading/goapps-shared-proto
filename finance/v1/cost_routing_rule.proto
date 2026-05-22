@@ -1,0 +1,127 @@
+syntax = "proto3";
+
+package finance.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// CostRoutingRule — PRD Phase A §7.1.4 (CRR_).
+// Admin-managed first-match-wins rules evaluated on cost_product_request submit.
+// condition is a JSON predicate tree; backend evaluates it against the request.
+// =============================================================================
+
+message CostRoutingRule {
+  int32 rule_id = 1;
+  int32 priority = 2;
+  string condition = 3; // serialized JSON predicate
+  // AUTO_ASSIGN | TO_TRIAGE.
+  string action_type = 4;
+  // user_id (for AUTO_ASSIGN to specific user) or functional_role (e.g. "Engineering").
+  string action_target = 5;
+  bool is_active = 6;
+  string created_by = 7;
+  string created_at = 8;
+}
+
+message CreateCostRoutingRuleRequest {
+  int32 priority = 1 [(buf.validate.field).int32.gte = 1];
+  string condition = 2 [(buf.validate.field).string = {
+    min_len: 2
+    max_len: 20000
+  }];
+  string action_type = 3 [(buf.validate.field).string = {
+    in: [
+      "AUTO_ASSIGN",
+      "TO_TRIAGE"
+    ]
+  }];
+  string action_target = 4 [(buf.validate.field).string.max_len = 100];
+}
+
+message CreateCostRoutingRuleResponse {
+  common.v1.BaseResponse base = 1;
+  CostRoutingRule data = 2;
+}
+
+message GetCostRoutingRuleRequest {
+  int32 rule_id = 1 [(buf.validate.field).int32.gte = 1];
+}
+
+message GetCostRoutingRuleResponse {
+  common.v1.BaseResponse base = 1;
+  CostRoutingRule data = 2;
+}
+
+message UpdateCostRoutingRuleRequest {
+  int32 rule_id = 1 [(buf.validate.field).int32.gte = 1];
+  int32 priority = 2 [(buf.validate.field).int32.gte = 1];
+  string condition = 3 [(buf.validate.field).string = {
+    min_len: 2
+    max_len: 20000
+  }];
+  string action_type = 4 [(buf.validate.field).string = {
+    in: [
+      "AUTO_ASSIGN",
+      "TO_TRIAGE"
+    ]
+  }];
+  string action_target = 5 [(buf.validate.field).string.max_len = 100];
+  bool is_active = 6;
+}
+
+message UpdateCostRoutingRuleResponse {
+  common.v1.BaseResponse base = 1;
+  CostRoutingRule data = 2;
+}
+
+message DeleteCostRoutingRuleRequest {
+  int32 rule_id = 1 [(buf.validate.field).int32.gte = 1];
+}
+
+message DeleteCostRoutingRuleResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message ListCostRoutingRulesRequest {
+  string active_filter = 1 [(buf.validate.field).string = {
+    in: [
+      "",
+      "all",
+      "active",
+      "inactive"
+    ]
+  }];
+  common.v1.PaginationRequest pagination = 2;
+}
+
+message ListCostRoutingRulesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated CostRoutingRule data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+service CostRoutingRuleService {
+  rpc CreateCostRoutingRule(CreateCostRoutingRuleRequest) returns (CreateCostRoutingRuleResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-routing-rules"
+      body: "*"
+    };
+  }
+  rpc GetCostRoutingRule(GetCostRoutingRuleRequest) returns (GetCostRoutingRuleResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-routing-rules/{rule_id}"};
+  }
+  rpc UpdateCostRoutingRule(UpdateCostRoutingRuleRequest) returns (UpdateCostRoutingRuleResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/finance/cost-routing-rules/{rule_id}"
+      body: "*"
+    };
+  }
+  rpc DeleteCostRoutingRule(DeleteCostRoutingRuleRequest) returns (DeleteCostRoutingRuleResponse) {
+    option (google.api.http) = {delete: "/api/v1/finance/cost-routing-rules/{rule_id}"};
+  }
+  rpc ListCostRoutingRules(ListCostRoutingRulesRequest) returns (ListCostRoutingRulesResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-routing-rules"};
+  }
+}
