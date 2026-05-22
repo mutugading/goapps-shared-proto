@@ -577,6 +577,37 @@ message ApproveCostResultResponse {
   CostResult result = 2;
 }
 
+// ProcessChunkInternalRequest carries the data the worker needs to compute
+// one chunk of products. Internal RPC: only finance-cost-worker invokes it.
+message ProcessChunkInternalRequest {
+  // Job id this chunk belongs to; must be > 0.
+  int64 job_id = 1 [(buf.validate.field).int64.gt = 0];
+  // Chunk id (cal_job_chunk.cjc_chunk_id) -- the row this chunk updates.
+  int64 chunk_id = 2 [(buf.validate.field).int64.gt = 0];
+  // Period in YYYYMM format (e.g., 202604).
+  string period = 3 [(buf.validate.field).string.pattern = "^[0-9]{6}$"];
+  // Calculation flavor; cannot be UNSPECIFIED.
+  CalculationType calculation_type = 4 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  // Product sys ids to compute; at least one required.
+  repeated int64 product_ids = 5 [(buf.validate.field).repeated.min_items = 1];
+  // Actor (worker id) recorded in audit + result rows.
+  string actor = 6 [(buf.validate.field).string.min_len = 1];
+}
+
+// ProcessChunkInternalResponse summarizes per-status counts.
+message ProcessChunkInternalResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Number of products that computed + persisted successfully.
+  int32 success_count = 2;
+  // Number of products that failed with non-recoverable errors.
+  int32 failed_count = 3;
+  // Number of products that were BLOCKED (missing CAPP, missing RM cost, etc.).
+  int32 blocked_count = 4;
+}
+
 // CostCalcService runs the cost calculation engine and exposes results.
 service CostCalcService {
   // TriggerCalcJob creates a new calc job batch.
@@ -647,4 +678,9 @@ service CostCalcService {
       body: "*"
     };
   }
+  // ProcessChunkInternal computes one chunk of products synchronously.
+  // Invoked by finance-cost-worker after consuming a chunk message from RMQ.
+  // NOT exposed via REST gateway; intended for service-to-service traffic only.
+  // Required permission: finance.cost.caljob.trigger.
+  rpc ProcessChunkInternal(ProcessChunkInternalRequest) returns (ProcessChunkInternalResponse);
 }
