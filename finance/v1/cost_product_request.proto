@@ -303,6 +303,16 @@ message ReviseCostProductRequestResponse {
   CostProductRequest data = 2;
 }
 
+// Reopen moves a terminal CLOSED request back to DRAFT so it can re-enter the
+// lifecycle. Restricted to admins at the delivery layer.
+message ReopenCostProductRequestRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+message ReopenCostProductRequestResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+
 // MarkParameterComplete moves PARAMETER_PENDING → PARAMETER_COMPLETE.
 // The handler verifies all promoted products have their required CAPP params
 // filled before allowing the transition.
@@ -425,6 +435,13 @@ service CostProductRequestService {
   rpc ReviseCostProductRequest(ReviseCostProductRequestRequest) returns (ReviseCostProductRequestResponse) {
     option (google.api.http) = {
       post: "/api/v1/finance/cost-product-requests/{request_id}/revise"
+      body: "*"
+    };
+  }
+  // ReopenCostProductRequest moves a CLOSED request back to DRAFT.
+  rpc ReopenCostProductRequest(ReopenCostProductRequestRequest) returns (ReopenCostProductRequestResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-requests/{request_id}/reopen"
       body: "*"
     };
   }
