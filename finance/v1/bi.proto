@@ -5,7 +5,9 @@ package finance.v1;
 // Note: go_package is managed by buf.gen.yaml managed mode
 // option go_package = "github.com/mutugading/goapps-backend/gen/finance/v1;financev1";
 
+import "buf/validate/validate.proto";
 import "common/v1/common.proto";
+import "google/api/annotations.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -149,4 +151,518 @@ message Meta {
   int32 row_count = 2;
   bool cache_hit = 3;
   string query_hash = 4;
+}
+
+// =================== Request/Response Messages — DashboardGroup ===================
+
+message CreateDashboardGroupRequest {
+  string group_code = 1 [(buf.validate.field).string = {
+    min_len: 2
+    max_len: 40
+    pattern: "^[A-Z][A-Z0-9_]*$"
+  }];
+  string group_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 120
+  }];
+  string description = 3 [(buf.validate.field).string.max_len = 500];
+  string icon = 4 [(buf.validate.field).string.max_len = 40];
+  int32 display_order = 5;
+  bool is_active = 6;
+}
+message CreateDashboardGroupResponse {
+  common.v1.BaseResponse base = 1;
+  DashboardGroup data = 2;
+}
+
+message ListDashboardGroupsRequest {
+  bool include_inactive = 1;
+}
+message ListDashboardGroupsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated DashboardGroup data = 2;
+}
+
+message UpdateDashboardGroupRequest {
+  string group_id = 1 [(buf.validate.field).string.uuid = true];
+  optional string group_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 120
+  }];
+  optional string description = 3 [(buf.validate.field).string.max_len = 500];
+  optional string icon = 4 [(buf.validate.field).string.max_len = 40];
+  optional int32 display_order = 5;
+  optional bool is_active = 6;
+}
+message UpdateDashboardGroupResponse {
+  common.v1.BaseResponse base = 1;
+  DashboardGroup data = 2;
+}
+
+message DeleteDashboardGroupRequest {
+  string group_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message DeleteDashboardGroupResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+// =================== Request/Response Messages — Dashboard ===================
+
+message CreateDashboardRequest {
+  string dashboard_code = 1 [(buf.validate.field).string = {
+    min_len: 2
+    max_len: 60
+    pattern: "^[A-Z][A-Z0-9_]*$"
+  }];
+  string dashboard_title = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  string description = 3 [(buf.validate.field).string.max_len = 1000];
+  string filter_type = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 40
+  }];
+  string filter_group_1 = 5 [(buf.validate.field).string.max_len = 100];
+  PeriodeGrain periode_grain = 6 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  string default_period = 7 [(buf.validate.field).string = {
+    in: [
+      "L12M",
+      "L24M",
+      "THIS_YEAR",
+      "THIS_QTR",
+      "THIS_MONTH",
+      "ALL",
+      "CUSTOM"
+    ]
+  }];
+  ChartType chart_type = 8 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  google.protobuf.Struct chart_config = 9;
+  google.protobuf.Struct layout_config = 10;
+  repeated CompareMode compare_modes = 11;
+  google.protobuf.Struct kpi_config = 12;
+  bool drill_enabled = 13;
+  int32 max_drill_level = 14 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 3
+  }];
+  int32 cache_ttl_sec = 15 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 86400
+  }];
+  int32 refresh_interval_sec = 16 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 3600
+  }];
+  int32 display_order = 17;
+  string group_id = 18 [(buf.validate.field).string.uuid = true];
+  repeated string allowed_role_codes = 19;
+  bool is_active = 20;
+}
+message CreateDashboardResponse {
+  common.v1.BaseResponse base = 1;
+  Dashboard data = 2;
+}
+
+message GetDashboardRequest {
+  string dashboard_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message GetDashboardResponse {
+  common.v1.BaseResponse base = 1;
+  Dashboard data = 2;
+}
+
+message GetDashboardByCodeRequest {
+  string dashboard_code = 1 [(buf.validate.field).string = {
+    min_len: 2
+    max_len: 60
+  }];
+}
+message GetDashboardByCodeResponse {
+  common.v1.BaseResponse base = 1;
+  Dashboard data = 2;
+}
+
+message ListDashboardsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
+  string search = 3 [(buf.validate.field).string.max_len = 100];
+  string group_id = 4;
+  string filter_type = 5;
+  bool include_inactive = 6;
+  string sort_by = 7 [(buf.validate.field).string = {
+    in: [
+      "",
+      "code",
+      "title",
+      "display_order",
+      "created_at"
+    ]
+  }];
+  string sort_order = 8 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
+}
+message ListDashboardsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Dashboard data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+message UpdateDashboardRequest {
+  string dashboard_id = 1 [(buf.validate.field).string.uuid = true];
+  optional string dashboard_title = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  optional string description = 3 [(buf.validate.field).string.max_len = 1000];
+  optional string filter_type = 4 [(buf.validate.field).string = {max_len: 40}];
+  optional string filter_group_1 = 5 [(buf.validate.field).string.max_len = 100];
+  optional PeriodeGrain periode_grain = 6;
+  optional string default_period = 7 [(buf.validate.field).string = {
+    in: [
+      "",
+      "L12M",
+      "L24M",
+      "THIS_YEAR",
+      "THIS_QTR",
+      "THIS_MONTH",
+      "ALL",
+      "CUSTOM"
+    ]
+  }];
+  optional ChartType chart_type = 8;
+  google.protobuf.Struct chart_config = 9;
+  google.protobuf.Struct layout_config = 10;
+  repeated CompareMode compare_modes = 11;
+  google.protobuf.Struct kpi_config = 12;
+  optional bool drill_enabled = 13;
+  optional int32 max_drill_level = 14 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 3
+  }];
+  optional int32 cache_ttl_sec = 15 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 86400
+  }];
+  optional int32 refresh_interval_sec = 16 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 3600
+  }];
+  optional int32 display_order = 17;
+  optional string group_id = 18 [(buf.validate.field).string = {pattern: "^$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"}];
+  optional bool is_active = 19;
+}
+message UpdateDashboardResponse {
+  common.v1.BaseResponse base = 1;
+  Dashboard data = 2;
+}
+
+message DeleteDashboardRequest {
+  string dashboard_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message DeleteDashboardResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message DuplicateDashboardRequest {
+  string dashboard_id = 1 [(buf.validate.field).string.uuid = true];
+  string new_code = 2 [(buf.validate.field).string = {
+    min_len: 2
+    max_len: 60
+    pattern: "^[A-Z][A-Z0-9_]*$"
+  }];
+  string new_title = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+}
+message DuplicateDashboardResponse {
+  common.v1.BaseResponse base = 1;
+  Dashboard data = 2;
+}
+
+message SetDashboardRolesRequest {
+  string dashboard_id = 1 [(buf.validate.field).string.uuid = true];
+  repeated string role_codes = 2;
+}
+message SetDashboardRolesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated string role_codes = 2;
+}
+
+message ListAccessibleDashboardsRequest {}
+message ListAccessibleDashboardsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Dashboard data = 2;
+}
+
+// =================== ChartDataService ===================
+
+message ViewerFilters {
+  string period_preset = 1;
+  google.protobuf.Timestamp period_from = 2;
+  google.protobuf.Timestamp period_to = 3;
+  CompareMode compare = 4;
+  repeated string drill_path = 5;
+}
+
+message GetDashboardDataRequest {
+  string dashboard_code = 1 [(buf.validate.field).string = {
+    min_len: 2
+    max_len: 60
+  }];
+  string period_preset = 2 [(buf.validate.field).string = {
+    in: [
+      "",
+      "L12M",
+      "L24M",
+      "THIS_YEAR",
+      "THIS_QTR",
+      "THIS_MONTH",
+      "ALL",
+      "CUSTOM"
+    ]
+  }];
+  google.protobuf.Timestamp period_from = 3;
+  google.protobuf.Timestamp period_to = 4;
+  CompareMode compare = 5;
+  repeated string drill_path = 6;
+}
+message GetDashboardDataResponse {
+  common.v1.BaseResponse base = 1;
+  ChartDataResponse data = 2;
+}
+
+message PreviewDashboardRequest {
+  string filter_type = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 40
+  }];
+  string filter_group_1 = 2 [(buf.validate.field).string.max_len = 100];
+  PeriodeGrain periode_grain = 3 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  ChartType chart_type = 4 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  google.protobuf.Struct chart_config = 5;
+  google.protobuf.Struct kpi_config = 6;
+  repeated CompareMode compare_modes = 7;
+}
+message PreviewDashboardResponse {
+  common.v1.BaseResponse base = 1;
+  ChartDataResponse data = 2;
+}
+
+// =================== DataSourceService ===================
+
+message ListDataSourcesRequest {
+  bool include_inactive = 1;
+}
+message ListDataSourcesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated DataSource data = 2;
+}
+
+message GetFactDistinctsRequest {
+  string type = 1 [(buf.validate.field).string.max_len = 40];
+}
+message GetFactDistinctsResponse {
+  common.v1.BaseResponse base = 1;
+  FactMetricDistinct data = 2;
+}
+
+// =================== BiJobService ===================
+
+message BiJob {
+  string job_id = 1;
+  string job_name = 2;
+  string source_id = 3;
+  string source_code = 4;
+  string target_type = 5;
+  string schedule_cron = 6;
+  string oracle_procedure = 7;
+  google.protobuf.Struct config = 8;
+  bool is_active = 9;
+  string last_status = 10;
+  google.protobuf.Timestamp last_run_at = 11;
+  int32 last_duration_ms = 12;
+  common.v1.AuditInfo audit = 13;
+}
+
+message BiJobLog {
+  int64 log_id = 1;
+  string job_id = 2;
+  string job_name = 3;
+  google.protobuf.Timestamp started_at = 4;
+  google.protobuf.Timestamp ended_at = 5;
+  string status = 6;
+  int32 rows_affected = 7;
+  string error_message = 8;
+  string triggered_by = 9;
+  int32 duration_ms = 10;
+}
+
+message ListJobsRequest {
+  bool include_inactive = 1;
+}
+message ListJobsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated BiJob data = 2;
+}
+
+message ListJobLogsRequest {
+  string job_id = 1 [(buf.validate.field).string.uuid = true];
+  int32 page = 2 [(buf.validate.field).int32.gte = 1];
+  int32 page_size = 3 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
+}
+message ListJobLogsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated BiJobLog data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+message TriggerJobRequest {
+  string job_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message TriggerJobResponse {
+  common.v1.BaseResponse base = 1;
+  BiJobLog data = 2;
+}
+
+// =================== Services ===================
+
+// DashboardService manages BI dashboard definitions, groups, and per-dashboard role mappings.
+service DashboardService {
+  // CreateDashboard creates a new dashboard definition.
+  rpc CreateDashboard(CreateDashboardRequest) returns (CreateDashboardResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/bi/dashboards"
+      body: "*"
+    };
+  }
+  // GetDashboard returns a dashboard by ID.
+  rpc GetDashboard(GetDashboardRequest) returns (GetDashboardResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/bi/dashboards/{dashboard_id}"};
+  }
+  // GetDashboardByCode returns a dashboard by its business code.
+  rpc GetDashboardByCode(GetDashboardByCodeRequest) returns (GetDashboardByCodeResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/bi/dashboards/by-code/{dashboard_code}"};
+  }
+  // ListDashboards returns paginated dashboards for admin.
+  rpc ListDashboards(ListDashboardsRequest) returns (ListDashboardsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/bi/dashboards"};
+  }
+  // UpdateDashboard mutates an existing dashboard.
+  rpc UpdateDashboard(UpdateDashboardRequest) returns (UpdateDashboardResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/finance/bi/dashboards/{dashboard_id}"
+      body: "*"
+    };
+  }
+  // DeleteDashboard soft-deletes a dashboard.
+  rpc DeleteDashboard(DeleteDashboardRequest) returns (DeleteDashboardResponse) {
+    option (google.api.http) = {delete: "/api/v1/finance/bi/dashboards/{dashboard_id}"};
+  }
+  // DuplicateDashboard clones a dashboard with a new code/title.
+  rpc DuplicateDashboard(DuplicateDashboardRequest) returns (DuplicateDashboardResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/bi/dashboards/{dashboard_id}/duplicate"
+      body: "*"
+    };
+  }
+  // SetDashboardRoles overwrites the dashboard's role whitelist.
+  rpc SetDashboardRoles(SetDashboardRolesRequest) returns (SetDashboardRolesResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/finance/bi/dashboards/{dashboard_id}/roles"
+      body: "*"
+    };
+  }
+  // ListAccessibleDashboards returns dashboards visible to the calling user (for viewer sidebar).
+  rpc ListAccessibleDashboards(ListAccessibleDashboardsRequest) returns (ListAccessibleDashboardsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/bi/dashboards/accessible"};
+  }
+  // CreateDashboardGroup creates a new dashboard group.
+  rpc CreateDashboardGroup(CreateDashboardGroupRequest) returns (CreateDashboardGroupResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/bi/groups"
+      body: "*"
+    };
+  }
+  // ListDashboardGroups returns dashboard groups.
+  rpc ListDashboardGroups(ListDashboardGroupsRequest) returns (ListDashboardGroupsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/bi/groups"};
+  }
+  // UpdateDashboardGroup mutates a group.
+  rpc UpdateDashboardGroup(UpdateDashboardGroupRequest) returns (UpdateDashboardGroupResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/finance/bi/groups/{group_id}"
+      body: "*"
+    };
+  }
+  // DeleteDashboardGroup soft-deletes a group.
+  rpc DeleteDashboardGroup(DeleteDashboardGroupRequest) returns (DeleteDashboardGroupResponse) {
+    option (google.api.http) = {delete: "/api/v1/finance/bi/groups/{group_id}"};
+  }
+}
+
+// ChartDataService serves shaped chart data for the viewer and admin preview.
+service ChartDataService {
+  // GetDashboardData resolves dashboard config + filters and returns chart-ready data.
+  rpc GetDashboardData(GetDashboardDataRequest) returns (GetDashboardDataResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/bi/dashboards/{dashboard_code}/data"};
+  }
+  // PreviewDashboard renders an unsaved dashboard config against real fact data (admin only).
+  rpc PreviewDashboard(PreviewDashboardRequest) returns (PreviewDashboardResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/bi/preview"
+      body: "*"
+    };
+  }
+}
+
+// DataSourceService exposes the data-source registry and fact-metric distincts for admin form dropdowns.
+service DataSourceService {
+  // ListDataSources returns all data sources.
+  rpc ListDataSources(ListDataSourcesRequest) returns (ListDataSourcesResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/bi/data-sources"};
+  }
+  // GetFactDistincts returns distinct type/group_1/group_2/group_3 values for an optional type filter.
+  rpc GetFactDistincts(GetFactDistinctsRequest) returns (GetFactDistinctsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/bi/fact/distincts"};
+  }
+}
+
+// BiJobService manages ETL job registry and logs.
+service BiJobService {
+  // ListJobs returns ETL job registry entries.
+  rpc ListJobs(ListJobsRequest) returns (ListJobsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/bi/jobs"};
+  }
+  // ListJobLogs returns logs for a specific job.
+  rpc ListJobLogs(ListJobLogsRequest) returns (ListJobLogsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/bi/jobs/{job_id}/logs"};
+  }
+  // TriggerJob manually triggers an ETL job run.
+  rpc TriggerJob(TriggerJobRequest) returns (TriggerJobResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/bi/jobs/{job_id}/trigger"
+      body: "*"
+    };
+  }
 }
