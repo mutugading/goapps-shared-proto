@@ -1,0 +1,263 @@
+syntax = "proto3";
+
+package finance.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// CostRouteHead is the per-product released routing aggregate.
+// One non-LOCKED head per product (UK by cpm_product_sys_id).
+message CostRouteHead {
+  int64 head_id = 1;
+  int64 product_sys_id = 2;
+  string product_code = 3; // denorm for list views
+  string product_name = 4; // denorm
+  // DRAFT | COMPLETE | LOCKED
+  string routing_status = 5;
+  int32 version = 6;
+  int64 promoted_from_draft_id = 7;
+  int32 cyl_type_id = 8;
+  string notes = 9;
+  common.v1.AuditInfo audit = 16;
+}
+
+// CostRouteSeq is one stage of the route at a given level + ordering.
+message CostRouteSeq {
+  int64 seq_id = 1;
+  int64 head_id = 2;
+  int64 product_sys_id = 3;
+  string product_code = 4; // denorm
+  string product_name = 5; // denorm
+  int32 route_level = 6; // 1 = FG; 2..N upstream
+  int32 route_seq = 7; // ordering within level
+  string route_name = 8;
+  string route_item_code = 9;
+  string route_shade_code = 10;
+  string route_shade_name = 11;
+  double position_x = 12;
+  double position_y = 13;
+  // RMs that feed this stage (rendered inline on graph fetch).
+  repeated CostRouteRm rms = 14;
+}
+
+// CostRouteRm is one input edge feeding a SEQ.
+// Exactly one of (rm_product_sys_id, rm_item_code, rm_group_code) is set,
+// matching rm_type.
+message CostRouteRm {
+  int64 rm_id = 1;
+  int64 seq_id = 2;
+  int64 parent_product_sys_id = 3;
+  // PRODUCT | ITEM | GROUP
+  string rm_type = 4;
+  int64 rm_product_sys_id = 5;
+  string rm_item_code = 6;
+  string rm_group_code = 7;
+  string route_rm_name = 8;
+  string route_rm_item_code = 9;
+  string route_rm_shade_code = 10;
+  string route_rm_shade_name = 11;
+  double route_rm_ratio = 12;
+  int32 uom_id = 13;
+  string sub_type = 14;
+  string notes = 15;
+}
+
+// RouteGraph bundles the head + all seqs (with rms inline).
+message RouteGraph {
+  CostRouteHead head = 1;
+  repeated CostRouteSeq seqs = 2;
+}
+
+// ---- Requests / responses ----
+
+message GetRouteByProductRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+}
+message GetRouteByProductResponse {
+  common.v1.BaseResponse base = 1;
+  CostRouteHead data = 2;
+}
+
+message GetRouteGraphRequest {
+  int64 head_id = 1 [(buf.validate.field).int64.gt = 0];
+}
+message GetRouteGraphResponse {
+  common.v1.BaseResponse base = 1;
+  RouteGraph data = 2;
+}
+
+message SaveRouteGraphRequest {
+  int64 head_id = 1 [(buf.validate.field).int64.gt = 0];
+  RouteGraph graph = 2;
+}
+message SaveRouteGraphResponse {
+  common.v1.BaseResponse base = 1;
+  RouteGraph data = 2;
+}
+
+message CompleteRouteRequest {
+  int64 head_id = 1 [(buf.validate.field).int64.gt = 0];
+}
+message CompleteRouteResponse {
+  common.v1.BaseResponse base = 1;
+  CostRouteHead data = 2;
+}
+
+message LockRouteRequest {
+  int64 head_id = 1 [(buf.validate.field).int64.gt = 0];
+}
+message LockRouteResponse {
+  common.v1.BaseResponse base = 1;
+  CostRouteHead data = 2;
+}
+
+message UnlockRouteRequest {
+  int64 head_id = 1 [(buf.validate.field).int64.gt = 0];
+}
+message UnlockRouteResponse {
+  common.v1.BaseResponse base = 1;
+  CostRouteHead data = 2;
+}
+
+message DeleteRouteRequest {
+  int64 head_id = 1 [(buf.validate.field).int64.gt = 0];
+}
+message DeleteRouteResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+message ListRoutesRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
+  string search = 3 [(buf.validate.field).string.max_len = 100];
+  // Empty / DRAFT / COMPLETE / LOCKED
+  string status = 4 [(buf.validate.field).string = {
+    in: [
+      "",
+      "DRAFT",
+      "COMPLETE",
+      "LOCKED"
+    ]
+  }];
+  string sort_by = 5 [(buf.validate.field).string = {
+    in: [
+      "",
+      "created_at",
+      "product_code",
+      "status"
+    ]
+  }];
+  string sort_order = 6 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
+}
+message ListRoutesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated CostRouteHead data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// CostRouteService manages persisted routings (replaces CostProductOrderService).
+service CostRouteService {
+  rpc GetRouteByProduct(GetRouteByProductRequest) returns (GetRouteByProductResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/routes/by-product/{product_sys_id}"};
+  }
+  rpc GetRouteGraph(GetRouteGraphRequest) returns (GetRouteGraphResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/routes/{head_id}/graph"};
+  }
+  rpc SaveRouteGraph(SaveRouteGraphRequest) returns (SaveRouteGraphResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/routes/{head_id}/graph"
+      body: "*"
+    };
+  }
+  rpc CompleteRoute(CompleteRouteRequest) returns (CompleteRouteResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/routes/{head_id}/complete"
+      body: "*"
+    };
+  }
+  rpc LockRoute(LockRouteRequest) returns (LockRouteResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/routes/{head_id}/lock"
+      body: "*"
+    };
+  }
+  rpc UnlockRoute(UnlockRouteRequest) returns (UnlockRouteResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/routes/{head_id}/unlock"
+      body: "*"
+    };
+  }
+  rpc DeleteRoute(DeleteRouteRequest) returns (DeleteRouteResponse) {
+    option (google.api.http) = {delete: "/api/v1/finance/routes/{head_id}"};
+  }
+  rpc ListRoutes(ListRoutesRequest) returns (ListRoutesResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/routes"};
+  }
+  rpc DuplicateRoute(DuplicateRouteRequest) returns (DuplicateRouteResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/routes/{head_id}/duplicate"
+      body: "*"
+    };
+  }
+  rpc ListLinkedRequests(ListLinkedRequestsRequest) returns (ListLinkedRequestsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/routes/{head_id}/linked-requests"};
+  }
+  rpc CreateRouteFromProduct(CreateRouteFromProductRequest) returns (CreateRouteFromProductResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/routes/from-product"
+      body: "*"
+    };
+  }
+}
+
+message DuplicateRouteRequest {
+  int64 head_id = 1 [(buf.validate.field).int64.gt = 0];
+  bool include_routing = 2;
+  bool include_upstream = 3;
+  bool include_applicability = 4;
+  bool include_values = 5;
+  string new_code_prefix = 6 [(buf.validate.field).string.max_len = 40];
+  int64 linked_request_id = 7;
+}
+message DuplicateRouteResponse {
+  common.v1.BaseResponse base = 1;
+  int64 new_head_id = 2;
+  int64 new_product_sys_id = 3;
+  string new_product_code = 4;
+}
+
+message ListLinkedRequestsRequest {
+  int64 head_id = 1 [(buf.validate.field).int64.gt = 0];
+}
+message LinkedRequest {
+  int64 request_id = 1;
+  string request_no = 2;
+  string status = 3;
+  string product_top_2 = 4;
+  string created_by = 5;
+  string created_at = 6;
+}
+message ListLinkedRequestsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated LinkedRequest data = 2;
+}
+
+message CreateRouteFromProductRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+  int64 linked_request_id = 2; // optional, atomically links the request on success.
+  int32 cyl_type_id = 3;
+}
+message CreateRouteFromProductResponse {
+  common.v1.BaseResponse base = 1;
+  int64 head_id = 2;
+}

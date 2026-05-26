@@ -1,0 +1,217 @@
+syntax = "proto3";
+
+package iam.v1;
+
+// Note: go_package is managed by buf.gen.yaml managed mode
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+import "iam/v1/user.proto";
+
+// =============================================================================
+// MESSAGES - Entity
+// =============================================================================
+
+// CompanyMapping represents a denormalized organizational path
+// (Company → Division → Department → optional Section) bundled under a single
+// human-friendly code. Section is optional. Used to assign users to one or
+// more organizational positions.
+message CompanyMapping {
+  // Unique identifier (UUID).
+  string company_mapping_id = 1;
+  // Unique business code (uppercase, digits, hyphen). Immutable after creation.
+  string code = 2;
+  // Display name (1-200 chars).
+  string name = 3;
+
+  // Company reference (required) and denormalized fields for read-side display.
+  string company_id = 4;
+  string company_code = 5;
+  string company_name = 6;
+
+  // Division reference (required) and denormalized fields.
+  string division_id = 7;
+  string division_code = 8;
+  string division_name = 9;
+
+  // Department reference (required) and denormalized fields.
+  string department_id = 10;
+  string department_code = 11;
+  string department_name = 12;
+
+  // Section reference (optional) and denormalized fields. Empty when no section.
+  optional string section_id = 13;
+  string section_code = 14;
+  string section_name = 15;
+
+  // Whether the mapping is active.
+  bool is_active = 16;
+
+  // Audit information.
+  common.v1.AuditInfo audit = 20;
+}
+
+// =============================================================================
+// MESSAGES - Create
+// =============================================================================
+
+// CreateCompanyMappingRequest is the request for creating a new mapping.
+message CreateCompanyMappingRequest {
+  // Unique code (1-50 chars, uppercase letters, digits and hyphens).
+  // Immutable after creation.
+  string code = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 50
+    pattern: "^[A-Z][A-Z0-9-]*$"
+  }];
+  // Display name (1-200 chars).
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  // Company ID (UUID, required).
+  string company_id = 3 [(buf.validate.field).string.uuid = true];
+  // Division ID (UUID, required).
+  string division_id = 4 [(buf.validate.field).string.uuid = true];
+  // Department ID (UUID, required).
+  string department_id = 5 [(buf.validate.field).string.uuid = true];
+  // Section ID (UUID, optional).
+  optional string section_id = 6 [(buf.validate.field).string.uuid = true];
+}
+
+// CreateCompanyMappingResponse is the response for creating a mapping.
+message CreateCompanyMappingResponse {
+  common.v1.BaseResponse base = 1;
+  CompanyMapping data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Get
+// =============================================================================
+
+// GetCompanyMappingRequest fetches a mapping by ID.
+message GetCompanyMappingRequest {
+  string company_mapping_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// GetCompanyMappingResponse is the response for fetching a mapping.
+message GetCompanyMappingResponse {
+  common.v1.BaseResponse base = 1;
+  CompanyMapping data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Update
+// =============================================================================
+
+// UpdateCompanyMappingRequest updates an existing mapping. Code is immutable.
+message UpdateCompanyMappingRequest {
+  string company_mapping_id = 1 [(buf.validate.field).string.uuid = true];
+  optional string name = 2 [(buf.validate.field).string = {max_len: 200}];
+  optional string company_id = 3 [(buf.validate.field).string.uuid = true];
+  optional string division_id = 4 [(buf.validate.field).string.uuid = true];
+  optional string department_id = 5 [(buf.validate.field).string.uuid = true];
+  optional string section_id = 6 [(buf.validate.field).string.uuid = true];
+  optional bool is_active = 7;
+}
+
+// UpdateCompanyMappingResponse is the response for updating a mapping.
+message UpdateCompanyMappingResponse {
+  common.v1.BaseResponse base = 1;
+  CompanyMapping data = 2;
+}
+
+// =============================================================================
+// MESSAGES - Delete
+// =============================================================================
+
+// DeleteCompanyMappingRequest soft-deletes a mapping by ID.
+message DeleteCompanyMappingRequest {
+  string company_mapping_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// DeleteCompanyMappingResponse is the response for deleting a mapping.
+message DeleteCompanyMappingResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+// =============================================================================
+// MESSAGES - List
+// =============================================================================
+
+// ListCompanyMappingsRequest lists mappings with search, filters, and pagination.
+message ListCompanyMappingsRequest {
+  int32 page = 1 [(buf.validate.field).int32.gte = 1];
+  int32 page_size = 2 [(buf.validate.field).int32 = {
+    gte: 1
+    lte: 100
+  }];
+  // Search across code, name, and denormalized hierarchy names.
+  string search = 3 [(buf.validate.field).string.max_len = 200];
+  optional string company_id = 4 [(buf.validate.field).string.uuid = true];
+  optional string division_id = 5 [(buf.validate.field).string.uuid = true];
+  optional string department_id = 6 [(buf.validate.field).string.uuid = true];
+  optional string section_id = 7 [(buf.validate.field).string.uuid = true];
+  ActiveFilter active_filter = 8;
+  string sort_by = 9 [(buf.validate.field).string = {
+    in: [
+      "",
+      "code",
+      "name",
+      "created_at"
+    ]
+  }];
+  string sort_order = 10 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
+}
+
+// ListCompanyMappingsResponse is the response for listing mappings.
+message ListCompanyMappingsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated CompanyMapping data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// =============================================================================
+// SERVICE DEFINITION
+// =============================================================================
+
+// CompanyMappingService provides CRUD for CompanyMapping master records.
+service CompanyMappingService {
+  // CreateCompanyMapping creates a new mapping.
+  rpc CreateCompanyMapping(CreateCompanyMappingRequest) returns (CreateCompanyMappingResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/company-mappings"
+      body: "*"
+    };
+  }
+
+  // GetCompanyMapping fetches a mapping by ID.
+  rpc GetCompanyMapping(GetCompanyMappingRequest) returns (GetCompanyMappingResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/company-mappings/{company_mapping_id}"};
+  }
+
+  // UpdateCompanyMapping updates an existing mapping. Code is immutable.
+  rpc UpdateCompanyMapping(UpdateCompanyMappingRequest) returns (UpdateCompanyMappingResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/iam/company-mappings/{company_mapping_id}"
+      body: "*"
+    };
+  }
+
+  // DeleteCompanyMapping soft-deletes a mapping.
+  rpc DeleteCompanyMapping(DeleteCompanyMappingRequest) returns (DeleteCompanyMappingResponse) {
+    option (google.api.http) = {delete: "/api/v1/iam/company-mappings/{company_mapping_id}"};
+  }
+
+  // ListCompanyMappings lists mappings with search, filter, and pagination.
+  rpc ListCompanyMappings(ListCompanyMappingsRequest) returns (ListCompanyMappingsResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/company-mappings"};
+  }
+}

@@ -1,0 +1,122 @@
+syntax = "proto3";
+
+package finance.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// CostRmType — PRD Phase B §7.2.3 (CRMT_).
+// User-definable RM type master. reference_target controls which FK is required
+// on cost_product_order_component:
+//   PRODUCT → CPOC_rm_product_sys_id (cost_product_master, Captive-Cost-like)
+//   MASTER  → CPOC_rm_master_item_id (cost_erp_item, Store-Rate-like)
+// allow_sub_sequence enables Multi-Yarn-like types (multiple rows per seq).
+// =============================================================================
+
+message CostRmType {
+  int32 type_id = 1;
+  string type_code = 2;
+  string type_name = 3;
+  string reference_target = 4; // PRODUCT | MASTER
+  bool allow_sub_sequence = 5;
+  bool is_active = 6;
+  common.v1.AuditInfo audit = 16;
+}
+
+message CreateCostRmTypeRequest {
+  string type_code = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 30
+    pattern: "^[A-Z][A-Z0-9_]*$"
+  }];
+  string type_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+  string reference_target = 3 [(buf.validate.field).string = {
+    in: [
+      "PRODUCT",
+      "MASTER"
+    ]
+  }];
+  bool allow_sub_sequence = 4;
+}
+
+message CreateCostRmTypeResponse {
+  common.v1.BaseResponse base = 1;
+  CostRmType data = 2;
+}
+
+message GetCostRmTypeRequest {
+  int32 type_id = 1 [(buf.validate.field).int32.gte = 1];
+}
+
+message GetCostRmTypeResponse {
+  common.v1.BaseResponse base = 1;
+  CostRmType data = 2;
+}
+
+message UpdateCostRmTypeRequest {
+  int32 type_id = 1 [(buf.validate.field).int32.gte = 1];
+  // reference_target + allow_sub_sequence are IMMUTABLE after create (would break
+  // existing components that depend on them); only display + active flag editable.
+  string type_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+  bool is_active = 3;
+}
+
+message UpdateCostRmTypeResponse {
+  common.v1.BaseResponse base = 1;
+  CostRmType data = 2;
+}
+
+message ListCostRmTypesRequest {
+  string search = 1 [(buf.validate.field).string.max_len = 200];
+  string reference_target = 2 [(buf.validate.field).string = {
+    in: [
+      "",
+      "PRODUCT",
+      "MASTER"
+    ]
+  }];
+  string active_filter = 3 [(buf.validate.field).string = {
+    in: [
+      "",
+      "all",
+      "active",
+      "inactive"
+    ]
+  }];
+  common.v1.PaginationRequest pagination = 4;
+}
+
+message ListCostRmTypesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated CostRmType data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+service CostRmTypeService {
+  rpc CreateCostRmType(CreateCostRmTypeRequest) returns (CreateCostRmTypeResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-rm-types"
+      body: "*"
+    };
+  }
+  rpc GetCostRmType(GetCostRmTypeRequest) returns (GetCostRmTypeResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-rm-types/{type_id}"};
+  }
+  rpc UpdateCostRmType(UpdateCostRmTypeRequest) returns (UpdateCostRmTypeResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/finance/cost-rm-types/{type_id}"
+      body: "*"
+    };
+  }
+  rpc ListCostRmTypes(ListCostRmTypesRequest) returns (ListCostRmTypesResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-rm-types"};
+  }
+}

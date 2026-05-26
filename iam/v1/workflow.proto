@@ -1,0 +1,416 @@
+syntax = "proto3";
+
+package iam.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// MESSAGES — Template + Step
+// =============================================================================
+
+// WorkflowTemplate is a versioned configuration of approval steps.
+// kind discriminates use cases (PRODUCT_COSTING, PARAM_FILL).
+message WorkflowTemplate {
+  string template_id = 1;
+  string kind = 2;
+  string name = 3;
+  int32 version = 4;
+  bool is_active = 5;
+  string description = 6;
+  repeated WorkflowTemplateStep steps = 7;
+  common.v1.AuditInfo audit = 16;
+}
+
+// WorkflowTemplateStep is one ordered step inside a template.
+message WorkflowTemplateStep {
+  string template_step_id = 1;
+  string template_id = 2;
+  int32 step_no = 3;
+  string step_name = 4;
+  string approver_resolution_type = 5; // ROLE | USER | DEPT
+  string approver_resolution_value = 6;
+  int32 sla_hours = 7;
+  bool allow_reject = 8;
+  bool allow_reassign = 9;
+  bool require_password_on_unlock = 10;
+  int32 reject_to_step_no = 11; // 0 = restart, N-1 = back one
+}
+
+// =============================================================================
+// Step input (shared by Create / Update)
+// =============================================================================
+
+message WorkflowTemplateStepInput {
+  int32 step_no = 1 [(buf.validate.field).int32.gte = 1];
+  string step_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  string approver_resolution_type = 3 [(buf.validate.field).string = {
+    in: [
+      "ROLE",
+      "USER",
+      "DEPT"
+    ]
+  }];
+  string approver_resolution_value = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  int32 sla_hours = 5 [(buf.validate.field).int32.gte = 0];
+  bool allow_reject = 6;
+  bool allow_reassign = 7;
+  bool require_password_on_unlock = 8;
+  int32 reject_to_step_no = 9 [(buf.validate.field).int32.gte = 0];
+}
+
+// =============================================================================
+// MESSAGES — Create
+// =============================================================================
+
+message CreateWorkflowTemplateRequest {
+  string kind = 1 [(buf.validate.field).string = {
+    in: [
+      "PRODUCT_COSTING",
+      "PARAM_FILL"
+    ]
+  }];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  string description = 3 [(buf.validate.field).string = {max_len: 1000}];
+  repeated WorkflowTemplateStepInput steps = 4 [(buf.validate.field).repeated.min_items = 1];
+}
+
+message CreateWorkflowTemplateResponse {
+  common.v1.BaseResponse base = 1;
+  WorkflowTemplate data = 2;
+}
+
+// =============================================================================
+// MESSAGES — Get
+// =============================================================================
+
+message GetWorkflowTemplateRequest {
+  string template_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetWorkflowTemplateResponse {
+  common.v1.BaseResponse base = 1;
+  WorkflowTemplate data = 2;
+}
+
+// =============================================================================
+// MESSAGES — Update
+// =============================================================================
+//
+// Update creates a new version of the template (immutable history). The current
+// active version is left untouched on disk; activate the new version via Activate.
+message UpdateWorkflowTemplateRequest {
+  string template_id = 1 [(buf.validate.field).string.uuid = true];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  string description = 3 [(buf.validate.field).string = {max_len: 1000}];
+  repeated WorkflowTemplateStepInput steps = 4 [(buf.validate.field).repeated.min_items = 1];
+}
+
+message UpdateWorkflowTemplateResponse {
+  common.v1.BaseResponse base = 1;
+  WorkflowTemplate data = 2;
+}
+
+// =============================================================================
+// MESSAGES — Activate
+// =============================================================================
+
+message ActivateWorkflowTemplateRequest {
+  string template_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message ActivateWorkflowTemplateResponse {
+  common.v1.BaseResponse base = 1;
+  WorkflowTemplate data = 2;
+}
+
+// =============================================================================
+// MESSAGES — Delete
+// =============================================================================
+
+message DeleteWorkflowTemplateRequest {
+  string template_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message DeleteWorkflowTemplateResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+// =============================================================================
+// MESSAGES — List
+// =============================================================================
+
+message ListWorkflowTemplatesRequest {
+  string search = 1 [(buf.validate.field).string.max_len = 200];
+  // Filter by kind (PRODUCT_COSTING|PARAM_FILL). Empty = all.
+  string kind = 2 [(buf.validate.field).string = {
+    in: [
+      "",
+      "PRODUCT_COSTING",
+      "PARAM_FILL"
+    ]
+  }];
+  // "all" | "active" | "inactive". Empty = all.
+  string active_filter = 3 [(buf.validate.field).string = {
+    in: [
+      "",
+      "all",
+      "active",
+      "inactive"
+    ]
+  }];
+  common.v1.PaginationRequest pagination = 4;
+  string sort_by = 5 [(buf.validate.field).string = {
+    in: [
+      "",
+      "kind",
+      "name",
+      "version",
+      "created_at"
+    ]
+  }];
+  string sort_order = 6 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
+}
+
+message ListWorkflowTemplatesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated WorkflowTemplate data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// =============================================================================
+// SERVICE DEFINITION
+// =============================================================================
+
+// WorkflowTemplateService provides CRUD for workflow templates (PRD v1.3 §0.1 D6).
+service WorkflowTemplateService {
+  rpc CreateWorkflowTemplate(CreateWorkflowTemplateRequest) returns (CreateWorkflowTemplateResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/workflow-templates"
+      body: "*"
+    };
+  }
+
+  rpc GetWorkflowTemplate(GetWorkflowTemplateRequest) returns (GetWorkflowTemplateResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/workflow-templates/{template_id}"};
+  }
+
+  // Update creates a new version row; the prior version remains in history.
+  rpc UpdateWorkflowTemplate(UpdateWorkflowTemplateRequest) returns (UpdateWorkflowTemplateResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/iam/workflow-templates/{template_id}"
+      body: "*"
+    };
+  }
+
+  // Activate marks this version active and deactivates all other versions of the same kind.
+  rpc ActivateWorkflowTemplate(ActivateWorkflowTemplateRequest) returns (ActivateWorkflowTemplateResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/workflow-templates/{template_id}/activate"
+      body: "*"
+    };
+  }
+
+  rpc DeleteWorkflowTemplate(DeleteWorkflowTemplateRequest) returns (DeleteWorkflowTemplateResponse) {
+    option (google.api.http) = {delete: "/api/v1/iam/workflow-templates/{template_id}"};
+  }
+
+  rpc ListWorkflowTemplates(ListWorkflowTemplatesRequest) returns (ListWorkflowTemplatesResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/workflow-templates"};
+  }
+}
+
+// =============================================================================
+// WORKFLOW INSTANCE — runtime state machine
+// =============================================================================
+
+// WorkflowInstance is a live execution of a workflow template against an entity.
+message WorkflowInstance {
+  string instance_id = 1;
+  string template_id = 2;
+  int32 template_version = 3;
+  string kind = 4; // PRODUCT_COSTING | PARAM_FILL
+  string entity_kind = 5; // PRD_REQUEST | CST_PRODUCT | PARAM_FILL
+  string entity_id = 6;
+  int32 current_step_no = 7;
+  string status = 8; // IN_PROGRESS | APPROVED | REJECTED | LOCKED | UNLOCKED
+  string started_by = 9;
+  string started_at = 10;
+  string completed_at = 11;
+  repeated WorkflowInstanceStep steps = 12;
+}
+
+// WorkflowInstanceStep is one snapshot row inside a running instance.
+message WorkflowInstanceStep {
+  string instance_step_id = 1;
+  string instance_id = 2;
+  int32 step_no = 3;
+  string step_name = 4;
+  string approver_resolution_type = 5;
+  string approver_resolution_value = 6;
+  int32 sla_hours = 7;
+  string assigned_at = 8;
+  string actor_user_id = 9;
+  string decision = 10; // "" | APPROVED | REJECTED | REASSIGNED | SKIPPED
+  string decided_at = 11;
+  string comment = 12;
+  string stuck_since = 13;
+}
+
+// =============================================================================
+// MESSAGES — Start
+// =============================================================================
+
+message StartWorkflowInstanceRequest {
+  // Template id to instantiate. Must be active.
+  string template_id = 1 [(buf.validate.field).string.uuid = true];
+  string entity_kind = 2 [(buf.validate.field).string = {
+    in: [
+      "PRD_REQUEST",
+      "CST_PRODUCT",
+      "PARAM_FILL"
+    ]
+  }];
+  string entity_id = 3 [(buf.validate.field).string.uuid = true];
+}
+
+message StartWorkflowInstanceResponse {
+  common.v1.BaseResponse base = 1;
+  WorkflowInstance data = 2;
+}
+
+// =============================================================================
+// MESSAGES — Advance (Approve current step)
+// =============================================================================
+
+message AdvanceWorkflowInstanceRequest {
+  string instance_id = 1 [(buf.validate.field).string.uuid = true];
+  string comment = 2 [(buf.validate.field).string.max_len = 1000];
+}
+
+message AdvanceWorkflowInstanceResponse {
+  common.v1.BaseResponse base = 1;
+  WorkflowInstance data = 2;
+}
+
+// =============================================================================
+// MESSAGES — Reject
+// =============================================================================
+
+message RejectWorkflowInstanceRequest {
+  string instance_id = 1 [(buf.validate.field).string.uuid = true];
+  string comment = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 1000
+  }];
+}
+
+message RejectWorkflowInstanceResponse {
+  common.v1.BaseResponse base = 1;
+  WorkflowInstance data = 2;
+}
+
+// =============================================================================
+// MESSAGES — Get
+// =============================================================================
+
+message GetWorkflowInstanceRequest {
+  string instance_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+message GetWorkflowInstanceResponse {
+  common.v1.BaseResponse base = 1;
+  WorkflowInstance data = 2;
+}
+
+// =============================================================================
+// MESSAGES — List
+// =============================================================================
+
+message ListWorkflowInstancesRequest {
+  string entity_kind = 1 [(buf.validate.field).string = {
+    in: [
+      "",
+      "PRD_REQUEST",
+      "CST_PRODUCT",
+      "PARAM_FILL"
+    ]
+  }];
+  string entity_id = 2;
+  string status = 3 [(buf.validate.field).string = {
+    in: [
+      "",
+      "IN_PROGRESS",
+      "APPROVED",
+      "REJECTED",
+      "LOCKED",
+      "UNLOCKED"
+    ]
+  }];
+  common.v1.PaginationRequest pagination = 4;
+}
+
+message ListWorkflowInstancesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated WorkflowInstance data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// =============================================================================
+// SERVICE DEFINITION — runtime
+// =============================================================================
+
+// WorkflowInstanceService drives the runtime state machine.
+service WorkflowInstanceService {
+  // StartWorkflowInstance snapshots the active template and creates an instance
+  // with its first step pre-assigned.
+  rpc StartWorkflowInstance(StartWorkflowInstanceRequest) returns (StartWorkflowInstanceResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/workflow-instances"
+      body: "*"
+    };
+  }
+
+  rpc GetWorkflowInstance(GetWorkflowInstanceRequest) returns (GetWorkflowInstanceResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/workflow-instances/{instance_id}"};
+  }
+
+  rpc ListWorkflowInstances(ListWorkflowInstancesRequest) returns (ListWorkflowInstancesResponse) {
+    option (google.api.http) = {get: "/api/v1/iam/workflow-instances"};
+  }
+
+  // Advance approves the current step. If it was the last step, status becomes LOCKED.
+  rpc AdvanceWorkflowInstance(AdvanceWorkflowInstanceRequest) returns (AdvanceWorkflowInstanceResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/workflow-instances/{instance_id}/advance"
+      body: "*"
+    };
+  }
+
+  // Reject sets status REJECTED with the supplied comment.
+  rpc RejectWorkflowInstance(RejectWorkflowInstanceRequest) returns (RejectWorkflowInstanceResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/workflow-instances/{instance_id}/reject"
+      body: "*"
+    };
+  }
+}

@@ -1,0 +1,504 @@
+syntax = "proto3";
+
+package finance.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// CostProductRequest — PRD Phase A §7.1.1 (CPR_) + §7.1.2 (CPS_).
+// State machine HARD-CODED per G3 (no IAM workflow template). The aggregate
+// root is the request; the spec is an embedded 1:1 conditional value object.
+// =============================================================================
+
+message CostProductSpec {
+  int64 spec_id = 1;
+  int64 request_id = 2;
+  // POY_BOUGHTOUT | CHIPS_SD | CHIPS_BRT | CHIPS_RECYCLE.
+  string raw_material_type = 3;
+  string product_description = 4;
+  int32 shade_id = 5;
+  string shade_custom_text = 6;
+  int32 paper_tube_type_id = 7;
+  string paper_tube_label = 8; // denormalized
+  string weight_per_bobbin_kg = 9; // decimal stringified to preserve precision
+  // JUMBO | NORMAL | PALLET.
+  string box_type = 10;
+  string created_at = 11;
+  string created_by = 12;
+}
+
+message CostProductRequest {
+  int64 request_id = 1;
+  string request_no = 2; // REQ-YYYYMM-NNNN
+  int32 request_type_id = 3;
+  string request_type_code = 4; // denormalized
+  string title = 5;
+  string description = 6;
+  string customer_name = 7;
+  string customer_code = 8;
+  string product_classification = 9; // existing | new
+  string verified_classification = 10;
+  string classification_override_reason = 11;
+  string target_volume = 12; // decimal stringified
+  string target_price_range = 13;
+  string urgency_level = 14; // low | medium | high
+  string needed_by_date = 15; // YYYY-MM-DD
+  string status = 16;
+  string closed_substatus = 17;
+  string feasibility_decision = 18; // FEASIBLE | NOT_FEASIBLE
+  string feasibility_note = 19;
+  string feasibility_by = 20;
+  string feasibility_at = 21;
+  string reject_reason = 22;
+  string cancel_reason = 23;
+  string assigned_to_user_id = 24;
+  string requester_user_id = 25;
+  common.v1.AuditInfo audit = 26;
+  CostProductSpec spec = 27;
+  // When UseExistingCosting was invoked, points to the product master whose costing is reused. 0 = none.
+  int64 existing_product_sys_id = 28;
+  // Active route head linked to this request (many requests → one route head when spec matches).
+  int64 linked_route_head_id = 29;
+}
+
+// =============================================================================
+// CRUD
+// =============================================================================
+
+message SpecInput {
+  string raw_material_type = 1 [(buf.validate.field).string = {
+    in: [
+      "POY_BOUGHTOUT",
+      "CHIPS_SD",
+      "CHIPS_BRT",
+      "CHIPS_RECYCLE"
+    ]
+  }];
+  string product_description = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 5000
+  }];
+  int32 shade_id = 3;
+  string shade_custom_text = 4 [(buf.validate.field).string.max_len = 100];
+  int32 paper_tube_type_id = 5 [(buf.validate.field).int32.gte = 1];
+  string weight_per_bobbin_kg = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 20
+  }];
+  string box_type = 7 [(buf.validate.field).string = {
+    in: [
+      "JUMBO",
+      "NORMAL",
+      "PALLET"
+    ]
+  }];
+}
+
+message CreateCostProductRequestRequest {
+  int32 request_type_id = 1 [(buf.validate.field).int32.gte = 1];
+  string title = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+  string description = 3 [(buf.validate.field).string.max_len = 10000];
+  string customer_name = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+  string customer_code = 5 [(buf.validate.field).string.max_len = 50];
+  string product_classification = 6 [(buf.validate.field).string = {
+    in: [
+      "existing",
+      "new"
+    ]
+  }];
+  string target_volume = 7 [(buf.validate.field).string.max_len = 30];
+  string target_price_range = 8 [(buf.validate.field).string.max_len = 50];
+  string urgency_level = 9 [(buf.validate.field).string = {
+    in: [
+      "",
+      "low",
+      "medium",
+      "high"
+    ]
+  }];
+  string needed_by_date = 10 [(buf.validate.field).string.max_len = 10];
+  SpecInput spec = 11;
+}
+
+message CreateCostProductRequestResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+
+message GetCostProductRequestRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+
+message GetCostProductRequestResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+
+message GetCostProductRequestByNoRequest {
+  string request_no = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 30
+  }];
+}
+
+message GetCostProductRequestByNoResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+
+message UpdateCostProductRequestRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+  string title = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+  string description = 3 [(buf.validate.field).string.max_len = 10000];
+  string customer_name = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+  string customer_code = 5 [(buf.validate.field).string.max_len = 50];
+  string product_classification = 6 [(buf.validate.field).string = {
+    in: [
+      "existing",
+      "new"
+    ]
+  }];
+  string target_volume = 7 [(buf.validate.field).string.max_len = 30];
+  string target_price_range = 8 [(buf.validate.field).string.max_len = 50];
+  string urgency_level = 9 [(buf.validate.field).string = {
+    in: [
+      "",
+      "low",
+      "medium",
+      "high"
+    ]
+  }];
+  string needed_by_date = 10 [(buf.validate.field).string.max_len = 10];
+  SpecInput spec = 11;
+}
+
+message UpdateCostProductRequestResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+
+message ListCostProductRequestsRequest {
+  string search = 1 [(buf.validate.field).string.max_len = 200];
+  string status = 2 [(buf.validate.field).string.max_len = 30];
+  int32 request_type_id = 3;
+  string requester_user_id = 4 [(buf.validate.field).string.max_len = 64];
+  string assignee_user_id = 5 [(buf.validate.field).string.max_len = 64];
+  common.v1.PaginationRequest pagination = 6;
+  string sort_by = 7 [(buf.validate.field).string = {
+    in: [
+      "",
+      "request_no",
+      "created_at",
+      "updated_at",
+      "status"
+    ]
+  }];
+  string sort_order = 8 [(buf.validate.field).string = {
+    in: [
+      "",
+      "asc",
+      "desc"
+    ]
+  }];
+}
+
+message ListCostProductRequestsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated CostProductRequest data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// =============================================================================
+// State transitions (hard-coded per G3). Each RPC has a dedicated req+resp pair.
+// =============================================================================
+
+message SubmitCostProductRequestRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+message SubmitCostProductRequestResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+
+message StartCostProductRequestReviewRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+message StartCostProductRequestReviewResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+
+message VerifyCostProductRequestClassificationRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+  string verified_classification = 2 [(buf.validate.field).string = {
+    in: [
+      "existing",
+      "new"
+    ]
+  }];
+  string override_reason = 3 [(buf.validate.field).string.max_len = 2000];
+}
+message VerifyCostProductRequestClassificationResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+
+message DecideCostProductRequestFeasibilityRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+  string decision = 2 [(buf.validate.field).string = {
+    in: [
+      "FEASIBLE",
+      "NOT_FEASIBLE"
+    ]
+  }];
+  string note = 3 [(buf.validate.field).string.max_len = 5000];
+}
+message DecideCostProductRequestFeasibilityResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+
+message UseExistingCostingForCostProductRequestRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+  // Existing product the request reuses costing from — recorded on the
+  // request so QUOTE_READY traces back to a concrete product master.
+  int64 existing_product_sys_id = 2 [(buf.validate.field).int64.gte = 1];
+}
+message UseExistingCostingForCostProductRequestResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+
+message RejectCostProductRequestRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+  string reason = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 5000
+  }];
+}
+message RejectCostProductRequestResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+
+message ReviseCostProductRequestRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+message ReviseCostProductRequestResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+
+// Reopen moves a terminal CLOSED request back to DRAFT so it can re-enter the
+// lifecycle. Restricted to admins at the delivery layer.
+message ReopenCostProductRequestRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+message ReopenCostProductRequestResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+
+// MarkParameterComplete moves PARAMETER_PENDING → PARAMETER_COMPLETE.
+// The handler verifies all promoted products have their required CAPP params
+// filled before allowing the transition.
+message MarkParameterCompleteRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+message MarkParameterCompleteResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+  // missing_products lists product_sys_ids that still have required params unfilled
+  // when the transition is blocked. Empty when the response is_success = true.
+  repeated MissingProductParams missing_products = 3;
+}
+
+message MissingProductParams {
+  int64 product_sys_id = 1;
+  string product_code = 2;
+  string product_name = 3;
+  repeated string missing_param_codes = 4;
+}
+
+message CancelCostProductRequestRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+  string reason = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 5000
+  }];
+}
+message CancelCostProductRequestResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+
+message CloseCostProductRequestRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+  string closed_substatus = 2 [(buf.validate.field).string = {
+    in: [
+      "won",
+      "lost",
+      "cancelled",
+      "on_hold"
+    ]
+  }];
+}
+message CloseCostProductRequestResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+
+message AssignCostProductRequestRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gte = 1];
+  string assignee_user_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 64
+  }];
+}
+message AssignCostProductRequestResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+
+service CostProductRequestService {
+  rpc CreateCostProductRequest(CreateCostProductRequestRequest) returns (CreateCostProductRequestResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-requests"
+      body: "*"
+    };
+  }
+  rpc GetCostProductRequest(GetCostProductRequestRequest) returns (GetCostProductRequestResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-product-requests/{request_id}"};
+  }
+  rpc GetCostProductRequestByNo(GetCostProductRequestByNoRequest) returns (GetCostProductRequestByNoResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-product-requests/by-no/{request_no}"};
+  }
+  rpc UpdateCostProductRequest(UpdateCostProductRequestRequest) returns (UpdateCostProductRequestResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/finance/cost-product-requests/{request_id}"
+      body: "*"
+    };
+  }
+  rpc ListCostProductRequests(ListCostProductRequestsRequest) returns (ListCostProductRequestsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-product-requests"};
+  }
+  rpc SubmitCostProductRequest(SubmitCostProductRequestRequest) returns (SubmitCostProductRequestResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-requests/{request_id}/submit"
+      body: "*"
+    };
+  }
+  rpc StartCostProductRequestReview(StartCostProductRequestReviewRequest) returns (StartCostProductRequestReviewResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-requests/{request_id}/start-review"
+      body: "*"
+    };
+  }
+  rpc VerifyCostProductRequestClassification(VerifyCostProductRequestClassificationRequest) returns (VerifyCostProductRequestClassificationResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-requests/{request_id}/verify-classification"
+      body: "*"
+    };
+  }
+  rpc DecideCostProductRequestFeasibility(DecideCostProductRequestFeasibilityRequest) returns (DecideCostProductRequestFeasibilityResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-requests/{request_id}/decide-feasibility"
+      body: "*"
+    };
+  }
+  rpc UseExistingCostingForCostProductRequest(UseExistingCostingForCostProductRequestRequest) returns (UseExistingCostingForCostProductRequestResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-requests/{request_id}/use-existing-costing"
+      body: "*"
+    };
+  }
+  rpc RejectCostProductRequest(RejectCostProductRequestRequest) returns (RejectCostProductRequestResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-requests/{request_id}/reject"
+      body: "*"
+    };
+  }
+  rpc ReviseCostProductRequest(ReviseCostProductRequestRequest) returns (ReviseCostProductRequestResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-requests/{request_id}/revise"
+      body: "*"
+    };
+  }
+  // ReopenCostProductRequest moves a CLOSED request back to DRAFT.
+  rpc ReopenCostProductRequest(ReopenCostProductRequestRequest) returns (ReopenCostProductRequestResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-requests/{request_id}/reopen"
+      body: "*"
+    };
+  }
+  // MarkParameterComplete advances PARAMETER_PENDING → PARAMETER_COMPLETE
+  // after verifying all promoted products have required params filled.
+  rpc MarkParameterComplete(MarkParameterCompleteRequest) returns (MarkParameterCompleteResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-requests/{request_id}/mark-parameter-complete"
+      body: "*"
+    };
+  }
+  rpc CancelCostProductRequest(CancelCostProductRequestRequest) returns (CancelCostProductRequestResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-requests/{request_id}/cancel"
+      body: "*"
+    };
+  }
+  rpc CloseCostProductRequest(CloseCostProductRequestRequest) returns (CloseCostProductRequestResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-requests/{request_id}/close"
+      body: "*"
+    };
+  }
+  rpc AssignCostProductRequest(AssignCostProductRequestRequest) returns (AssignCostProductRequestResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-requests/{request_id}/assign"
+      body: "*"
+    };
+  }
+  // LinkExistingRoute attaches an existing route_head to the request.
+  rpc LinkExistingRoute(LinkExistingRouteRequest) returns (LinkExistingRouteResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-requests/{request_id}/link-route"
+      body: "*"
+    };
+  }
+  // UnlinkRoute clears both existing-product and linked-route fields.
+  rpc UnlinkRoute(UnlinkRouteRequest) returns (UnlinkRouteResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-requests/{request_id}/unlink-route"
+      body: "*"
+    };
+  }
+}
+
+message LinkExistingRouteRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gt = 0];
+  int64 route_head_id = 2 [(buf.validate.field).int64.gt = 0];
+}
+message LinkExistingRouteResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}
+message UnlinkRouteRequest {
+  int64 request_id = 1 [(buf.validate.field).int64.gt = 0];
+}
+message UnlinkRouteResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductRequest data = 2;
+}

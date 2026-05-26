@@ -15,29 +15,32 @@ managed:
       path: .
 plugins:
   # ===========================================================================
-  # Go Backend Generation
+  # Go Backend Generation (LOCAL binaries installed via `go install`).
+  # buf.build remote plugins were unreachable during S7; local binaries remove
+  # the runtime dependency on the BSR. To revert, swap each
+  # `local: protoc-gen-XXX` back to `remote: buf.build/<owner>/<plugin>`.
   # ===========================================================================
 
   # Go protobuf structs
-  - remote: buf.build/protocolbuffers/go
+  - local: protoc-gen-go
     out: ../goapps-backend/gen
     opt:
       - paths=source_relative
 
   # gRPC service stubs
-  - remote: buf.build/grpc/go
+  - local: protoc-gen-go-grpc
     out: ../goapps-backend/gen
     opt:
       - paths=source_relative
 
   # gRPC-Gateway for REST API
-  - remote: buf.build/grpc-ecosystem/gateway
+  - local: protoc-gen-grpc-gateway
     out: ../goapps-backend/gen
     opt:
       - paths=source_relative
 
   # OpenAPI/Swagger documentation
-  - remote: buf.build/grpc-ecosystem/openapiv2
+  - local: protoc-gen-openapiv2
     out: ../goapps-backend/gen/openapi
 
 inputs:

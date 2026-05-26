@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package finance.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// CostAuditLog — PRD Phase A §7.1.14 (CAL_).
+// Append-only audit trail. Writes happen inside the business handlers (e.g.,
+// CostProductRequestService.DecideFeasibility appends a CAL_ row). This service
+// exposes READ-ONLY queries for admin viewing — there is no CreateAuditLog RPC.
+// =============================================================================
+
+message CostAuditLog {
+  int64 log_id = 1;
+  string entity_type = 2;
+  int64 entity_id = 3;
+  string operation = 4;
+  // before/after data as JSON-stringified objects.
+  string before_data = 5;
+  string after_data = 6;
+  string user_id = 7;
+  string performed_at = 8;
+}
+
+message ListCostAuditLogsRequest {
+  // Optional filters; all return everything when empty.
+  string entity_type = 1 [(buf.validate.field).string.max_len = 50];
+  int64 entity_id = 2;
+  string user_id = 3 [(buf.validate.field).string.max_len = 64];
+  string operation = 4 [(buf.validate.field).string.max_len = 30];
+  // ISO date YYYY-MM-DD inclusive.
+  string from_date = 5 [(buf.validate.field).string.max_len = 10];
+  string to_date = 6 [(buf.validate.field).string.max_len = 10];
+  common.v1.PaginationRequest pagination = 7;
+}
+
+message ListCostAuditLogsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated CostAuditLog data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+service CostAuditLogService {
+  rpc ListCostAuditLogs(ListCostAuditLogsRequest) returns (ListCostAuditLogsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-audit-logs"};
+  }
+}

@@ -71,6 +71,18 @@ message Parameter {
   string uom_code = 22;
   // Resolved UOM name (read-only, populated from mst_uom join).
   string uom_name = 23;
+  // Responsible department (Engineering, Production, Finance, RND). Optional.
+  string owner_department = 24;
+  // Whether this parameter must be filled per product before the request can leave PARAMETER_PENDING.
+  bool is_required_for_costing = 25;
+  // FALSE = stored in cost_product_parameter (Phase B static). TRUE = stored per period in Phase C (deferred).
+  bool is_period_dependent = 26;
+  // When NOT empty the UI renders a combobox sourced from the named master (e.g. YARN_TYPE). Free-text fallback while master is not yet built.
+  string lookup_master_code = 27;
+  // Render order within display_group.
+  int32 display_order = 28;
+  // Form section: Spec / Machine / Grade / Packing / Cost / etc.
+  string display_group = 29;
 }
 
 // =============================================================================
@@ -112,6 +124,18 @@ message CreateParameterRequest {
   string min_value = 8 [(buf.validate.field).string.max_len = 50];
   // Maximum value (optional, decimal as string).
   string max_value = 9 [(buf.validate.field).string.max_len = 50];
+  // Owner department (optional, max 30 chars).
+  string owner_department = 10 [(buf.validate.field).string.max_len = 30];
+  // Whether required for costing (default false).
+  bool is_required_for_costing = 11;
+  // Period-dependent flag (default false). TRUE = Phase C period-storage (deferred).
+  bool is_period_dependent = 12;
+  // Lookup master code (optional, max 30 chars). E.g. 'YARN_TYPE'.
+  string lookup_master_code = 13 [(buf.validate.field).string.max_len = 30];
+  // Display order within display group (default 0).
+  int32 display_order = 14 [(buf.validate.field).int32.gte = 0];
+  // Display group (optional, max 50 chars). E.g. 'Spec', 'Machine'.
+  string display_group = 15 [(buf.validate.field).string.max_len = 50];
 }
 
 // CreateParameterResponse is the response for creating a parameter.
@@ -171,6 +195,18 @@ message UpdateParameterRequest {
   optional string max_value = 9;
   // New active status (optional).
   optional bool is_active = 10;
+  // New owner department (optional).
+  optional string owner_department = 11 [(buf.validate.field).string.max_len = 30];
+  // New is_required_for_costing flag (optional).
+  optional bool is_required_for_costing = 12;
+  // New is_period_dependent flag (optional).
+  optional bool is_period_dependent = 13;
+  // New lookup master code (optional). Set to empty string to clear.
+  optional string lookup_master_code = 14 [(buf.validate.field).string.max_len = 30];
+  // New display order (optional).
+  optional int32 display_order = 15 [(buf.validate.field).int32.gte = 0];
+  // New display group (optional). Set to empty string to clear.
+  optional string display_group = 16 [(buf.validate.field).string.max_len = 50];
 }
 
 // UpdateParameterResponse is the response for updating a parameter.

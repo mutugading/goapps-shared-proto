@@ -204,6 +204,10 @@ message AuthUser {
   bool two_factor_enabled = 8;
   // Whether the user has verified their email address (true if email_verified_at IS NOT NULL).
   bool email_verified = 9;
+  // Section UUID assigned to the user via user_detail (empty if not assigned).
+  string section_id = 10;
+  // Department UUID derived from the user's section (empty if no section assigned).
+  string department_id = 11;
 }
 
 // =============================================================================

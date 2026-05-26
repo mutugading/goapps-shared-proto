@@ -1,0 +1,719 @@
+syntax = "proto3";
+
+package finance.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+// CalculationType selects the costing flavor for a job/result.
+enum CalculationType {
+  // Default - invalid for create/update; ignored as filter.
+  CALCULATION_TYPE_UNSPECIFIED = 0;
+  // Actual cost based on realized RM rates.
+  CALCULATION_TYPE_ACTUAL = 1;
+  // Forecast cost using forward-looking rates.
+  CALCULATION_TYPE_FORECAST = 2;
+  // Selling-side cost projection.
+  CALCULATION_TYPE_SELLING = 3;
+}
+
+// CalcJobStatus is the lifecycle status of a calc job batch.
+enum CalcJobStatus {
+  // Default - invalid for create/update; ignored as filter.
+  CALC_JOB_STATUS_UNSPECIFIED = 0;
+  // Job created, waiting for planner.
+  CALC_JOB_STATUS_QUEUED = 1;
+  // Planner is expanding products + chunks.
+  CALC_JOB_STATUS_PLANNING = 2;
+  // Chunks dispatched, workers running.
+  CALC_JOB_STATUS_PROCESSING = 3;
+  // All products calculated successfully.
+  CALC_JOB_STATUS_SUCCESS = 4;
+  // Some products failed, others succeeded.
+  CALC_JOB_STATUS_PARTIAL_FAILED = 5;
+  // Job failed at planning or all chunks failed.
+  CALC_JOB_STATUS_FAILED = 6;
+  // Operator cancelled the job.
+  CALC_JOB_STATUS_CANCELLED = 7;
+}
+
+// CalcJobScope describes what set of products the job covers.
+enum CalcJobScope {
+  // Default - invalid for trigger.
+  CALC_JOB_SCOPE_UNSPECIFIED = 0;
+  // All eligible products for the period.
+  CALC_JOB_SCOPE_ALL = 1;
+  // Subset selected by product_filter_json.
+  CALC_JOB_SCOPE_FILTERED = 2;
+  // A single product target.
+  CALC_JOB_SCOPE_SINGLE_PRODUCT = 3;
+  // A single route head target.
+  CALC_JOB_SCOPE_SINGLE_ROUTE = 4;
+}
+
+// ChunkStatus is the lifecycle status of an individual chunk.
+enum ChunkStatus {
+  // Default - invalid for create/update.
+  CHUNK_STATUS_UNSPECIFIED = 0;
+  // Chunk queued, not yet dispatched.
+  CHUNK_STATUS_QUEUED = 1;
+  // Chunk dispatched to a worker.
+  CHUNK_STATUS_DISPATCHED = 2;
+  // Worker is processing the chunk.
+  CHUNK_STATUS_PROCESSING = 3;
+  // All products in chunk succeeded.
+  CHUNK_STATUS_SUCCESS = 4;
+  // Some products in chunk failed.
+  CHUNK_STATUS_PARTIAL_FAILED = 5;
+  // All products in chunk failed.
+  CHUNK_STATUS_FAILED = 6;
+}
+
+// JobProductStatus is the per-product execution status inside a job.
+enum JobProductStatus {
+  // Default - invalid for create/update.
+  JOB_PRODUCT_STATUS_UNSPECIFIED = 0;
+  // Awaiting upstream waves to finish.
+  JOB_PRODUCT_STATUS_PENDING = 1;
+  // Inputs ready, awaiting worker.
+  JOB_PRODUCT_STATUS_READY = 2;
+  // Worker calculating now.
+  JOB_PRODUCT_STATUS_CALCULATING = 3;
+  // Cost calculated successfully.
+  JOB_PRODUCT_STATUS_SUCCESS = 4;
+  // Calculation failed for this product.
+  JOB_PRODUCT_STATUS_FAILED = 5;
+  // Blocked by upstream failure or missing inputs.
+  JOB_PRODUCT_STATUS_BLOCKED = 6;
+  // Skipped (e.g., no active route).
+  JOB_PRODUCT_STATUS_SKIPPED = 7;
+}
+
+// CostResultStatus is the lifecycle status of a stored cost result.
+enum CostResultStatus {
+  // Default - invalid for create/update.
+  COST_RESULT_STATUS_UNSPECIFIED = 0;
+  // Freshly calculated, awaiting review.
+  COST_RESULT_STATUS_CALCULATED = 1;
+  // Verified by a reviewer.
+  COST_RESULT_STATUS_VERIFIED = 2;
+  // Approved for downstream use.
+  COST_RESULT_STATUS_APPROVED = 3;
+  // Replaced by a newer version.
+  COST_RESULT_STATUS_SUPERSEDED = 4;
+}
+
+// CalJob represents a calculation job batch.
+message CalJob {
+  // Auto-increment job id.
+  int64 job_id = 1;
+  // Human-readable job code (e.g., CJ-202604-ACTUAL-001).
+  string job_code = 2;
+  // Period in YYYYMM format.
+  string period = 3;
+  // Calculation flavor.
+  CalculationType calculation_type = 4;
+  // Scope of products this job covers.
+  CalcJobScope scope = 5;
+  // Raw JSON of cj_product_filter (filter criteria when scope=FILTERED).
+  string product_filter_json = 6;
+  // Current lifecycle status.
+  CalcJobStatus status = 7;
+  // Higher value = higher priority for dispatcher.
+  int32 priority = 8;
+  // Total products targeted by this job.
+  int32 total_products = 9;
+  // Total chunks planned.
+  int32 total_chunks = 10;
+  // Total waves (dependency levels) planned.
+  int32 total_waves = 11;
+  // Chunks completed so far.
+  int32 processed_chunks = 12;
+  // Successful product calculations.
+  int32 success_count = 13;
+  // Failed product calculations.
+  int32 failed_count = 14;
+  // Blocked products count.
+  int32 blocked_count = 15;
+  // Raw JSON summarizing errors (top error categories + counts).
+  string error_summary_json = 16;
+  // Trigger source: MANUAL | CRON | API.
+  string triggered_by = 17;
+  // When job was queued.
+  google.protobuf.Timestamp queued_at = 18;
+  // When planner started.
+  google.protobuf.Timestamp started_at = 19;
+  // When job ended (success/fail/cancelled).
+  google.protobuf.Timestamp completed_at = 20;
+  // Total duration in milliseconds.
+  int64 duration_ms = 21;
+  // User who triggered the job (resolved label, not UUID).
+  string created_by = 22;
+}
+
+// CalJobChunk is one batch of products dispatched to a worker.
+message CalJobChunk {
+  // Auto-increment chunk id.
+  int64 chunk_id = 1;
+  // Parent job id.
+  int64 job_id = 2;
+  // Sequential chunk number within the job.
+  int32 chunk_number = 3;
+  // Wave (dependency level) this chunk belongs to.
+  int32 wave_no = 4;
+  // Product ids contained in this chunk.
+  repeated int64 product_ids = 5;
+  // Count of products in this chunk.
+  int32 product_count = 6;
+  // Current chunk status.
+  ChunkStatus status = 7;
+  // Worker pod/id that picked up the chunk.
+  string worker_id = 8;
+  // When chunk was queued.
+  google.protobuf.Timestamp queued_at = 9;
+  // When dispatched to a worker.
+  google.protobuf.Timestamp dispatched_at = 10;
+  // When worker started processing.
+  google.protobuf.Timestamp started_at = 11;
+  // When worker finished.
+  google.protobuf.Timestamp completed_at = 12;
+  // Duration in milliseconds.
+  int32 duration_ms = 13;
+  // Successful products in chunk.
+  int32 success_count = 14;
+  // Failed products in chunk.
+  int32 failed_count = 15;
+  // Chunk-level error message (planning/dispatch).
+  string error_message = 16;
+  // Retry attempt count.
+  int32 retry_count = 17;
+  // Max retries allowed before giving up.
+  int32 max_retries = 18;
+}
+
+// CalJobProduct is per-product execution row inside a job.
+message CalJobProduct {
+  // Auto-increment job-product id.
+  int64 job_product_id = 1;
+  // Parent job id.
+  int64 job_id = 2;
+  // Chunk this product was assigned to.
+  int64 chunk_id = 3;
+  // Product sys id (numeric internal id).
+  int64 product_sys_id = 4;
+  // Resolved product code (NEVER expose UUID — see UX rule).
+  string product_code = 5;
+  // Resolved product name for UI.
+  string product_name = 6;
+  // Route head used for this calculation.
+  int64 route_head_id = 7;
+  // Wave (dependency level).
+  int32 wave_no = 8;
+  // Current product status.
+  JobProductStatus status = 9;
+  // Reason if status=BLOCKED.
+  string block_reason = 10;
+  // When calculation started.
+  google.protobuf.Timestamp started_at = 11;
+  // When calculation finished.
+  google.protobuf.Timestamp completed_at = 12;
+  // Duration in milliseconds.
+  int32 duration_ms = 13;
+  // Cost result id if status=SUCCESS.
+  int64 cost_id = 14;
+  // Error message if status=FAILED.
+  string error_message = 15;
+  // Raw JSON calculation log (formula trace + intermediate values).
+  string calculation_log_json = 16;
+}
+
+// CostResult is the persisted cost summary for a product/period/type.
+message CostResult {
+  // Auto-increment cost id.
+  int64 cost_id = 1;
+  // Product sys id.
+  int64 product_sys_id = 2;
+  // Resolved product code.
+  string product_code = 3;
+  // Resolved product name.
+  string product_name = 4;
+  // Period in YYYYMM format.
+  string period = 5;
+  // Calculation flavor for this row.
+  CalculationType calculation_type = 6;
+  // Route head used for the calculation.
+  int64 route_head_id = 7;
+  // Version (auto-increment per (product, period, type)).
+  int32 version = 8;
+  // Cost per unit (NUMERIC(20,6) serialized as string).
+  string cost_per_unit = 9;
+  // Aggregate RM cost for this product (sum of unit × ratio across stages).
+  string total_rm_cost = 10;
+  // Aggregate conversion cost across stages.
+  string total_conversion = 11;
+  // Total cost (rm + conversion).
+  string total_cost = 12;
+  // UOM id of the unit.
+  int32 uom_id = 13;
+  // Resolved UOM code.
+  string uom_code = 14;
+  // Currency ISO code.
+  string currency_code = 15;
+  // Result lifecycle status.
+  CostResultStatus status = 16;
+  // Job id that produced this row.
+  int64 job_id = 17;
+  // When calculation completed.
+  google.protobuf.Timestamp calculated_at = 18;
+  // User who triggered the calc (resolved label).
+  string calculated_by = 19;
+  // When verified (if applicable).
+  google.protobuf.Timestamp verified_at = 20;
+  // User who verified (resolved label).
+  string verified_by = 21;
+}
+
+// CostBreakdown is the full drill-down for one CostResult.
+message CostBreakdown {
+  // Summary row.
+  CostResult summary = 1;
+  // Cost contribution per route level.
+  repeated LevelBreakdown by_level = 2;
+  // RM input details.
+  repeated CostRMDetail rm_details = 3;
+  // Formula evaluation trace.
+  repeated FormulaEval formula_trace = 4;
+  // Snapshot of parameters used (key = param_code, val = stringified float).
+  map<string, string> param_snapshot = 5;
+}
+
+// LevelBreakdown is the cost contribution at one route level.
+message LevelBreakdown {
+  // Route level (1 = FG; 2..N upstream).
+  int32 level = 1;
+  // Product sys id at this level.
+  int64 product_sys_id = 2;
+  // Resolved product code.
+  string product_code = 3;
+  // Resolved product name.
+  string product_name = 4;
+  // Cost contribution (stringified NUMERIC).
+  string cost_contribution = 5;
+  // Ratio of this level to total cost.
+  string ratio = 6;
+}
+
+// CostRMDetail is one RM input edge contribution to the cost.
+message CostRMDetail {
+  // RM type: PRODUCT | ITEM | GROUP.
+  string rm_type = 1;
+  // Reference code: product_code for PRODUCT, item_code for ITEM, group_code for GROUP.
+  string ref_code = 2;
+  // Resolved display label for the ref.
+  string ref_label = 3;
+  // Shade code (if applicable).
+  string shade_code = 4;
+  // Unit cost (stringified NUMERIC).
+  string unit_cost = 5;
+  // Consumption ratio.
+  string ratio = 6;
+  // Contribution = unit_cost × ratio.
+  string contribution = 7;
+}
+
+// FormulaEval traces one formula evaluation step.
+message FormulaEval {
+  // Formula code.
+  string formula_code = 1;
+  // Formula human name.
+  string formula_name = 2;
+  // Expression evaluated.
+  string expression = 3;
+  // Inputs (key = param_code, val = stringified value).
+  map<string, string> inputs = 4;
+  // Output parameter code this formula assigns.
+  string output_param_code = 5;
+  // Output value (stringified NUMERIC).
+  string output_value = 6;
+}
+
+// CostHistoryEntry is one row in the versioned cost history.
+message CostHistoryEntry {
+  // Cost id of this history entry.
+  int64 cost_id = 1;
+  // Period in YYYYMM format.
+  string period = 2;
+  // Calculation flavor.
+  CalculationType calculation_type = 3;
+  // Version number.
+  int32 version = 4;
+  // Cost per unit (stringified NUMERIC).
+  string cost_per_unit = 5;
+  // Variance percentage vs the previous version (sign included, stringified).
+  string variance_pct_from_previous = 6;
+  // Lifecycle status.
+  CostResultStatus status = 7;
+  // Job id that produced this row.
+  int64 job_id = 8;
+  // When calculation completed.
+  google.protobuf.Timestamp calculated_at = 9;
+  // User who triggered the calc (resolved label).
+  string calculated_by = 10;
+}
+
+// ---- Requests / responses ----
+
+// TriggerCalcJobRequest creates a new calc job batch.
+message TriggerCalcJobRequest {
+  // Period in YYYYMM format (e.g., 202604).
+  string period = 1 [(buf.validate.field).string.pattern = "^[0-9]{6}$"];
+  // Calculation flavor; cannot be UNSPECIFIED.
+  CalculationType calculation_type = 2 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  // Scope; cannot be UNSPECIFIED.
+  CalcJobScope scope = 3 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  // For SINGLE_PRODUCT, set product_sys_id. Otherwise leave 0.
+  int64 product_sys_id = 4;
+  // For SINGLE_ROUTE, set route_head_id. Otherwise leave 0.
+  int64 route_head_id = 5;
+  // For FILTERED, set product_type_id_filter. Otherwise leave 0.
+  int32 product_type_id_filter = 6;
+}
+
+// TriggerCalcJobResponse returns the created job.
+message TriggerCalcJobResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Created job.
+  CalJob job = 2;
+}
+
+// GetCalcJobRequest fetches one job by id.
+message GetCalcJobRequest {
+  // Job id; must be > 0.
+  int64 job_id = 1 [(buf.validate.field).int64.gt = 0];
+}
+
+// GetCalcJobResponse returns the requested job.
+message GetCalcJobResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Requested job.
+  CalJob job = 2;
+}
+
+// ListCalcJobsRequest lists jobs with filters and pagination.
+message ListCalcJobsRequest {
+  // Pagination params.
+  common.v1.PaginationRequest pagination = 1;
+  // Optional period filter (YYYYMM).
+  string period = 2;
+  // Optional calculation type filter (UNSPECIFIED = no filter).
+  CalculationType calculation_type = 3;
+  // Optional status filter (UNSPECIFIED = no filter).
+  CalcJobStatus status = 4;
+  // Optional triggered_by filter (e.g., MANUAL/CRON/API).
+  string triggered_by = 5;
+}
+
+// ListCalcJobsResponse returns a page of jobs.
+message ListCalcJobsResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Page of jobs.
+  repeated CalJob items = 2;
+  // Pagination metadata.
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// ListCalcJobChunksRequest lists chunks for one job.
+message ListCalcJobChunksRequest {
+  // Parent job id.
+  int64 job_id = 1 [(buf.validate.field).int64.gt = 0];
+  // Pagination params.
+  common.v1.PaginationRequest pagination = 2;
+  // Optional wave filter (0 = no filter).
+  int32 wave_no = 3;
+  // Optional chunk status filter (UNSPECIFIED = no filter).
+  ChunkStatus status = 4;
+}
+
+// ListCalcJobChunksResponse returns a page of chunks.
+message ListCalcJobChunksResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Page of chunks.
+  repeated CalJobChunk items = 2;
+  // Pagination metadata.
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// ListCalcJobProductsRequest lists per-product execution rows for one job.
+message ListCalcJobProductsRequest {
+  // Parent job id.
+  int64 job_id = 1 [(buf.validate.field).int64.gt = 0];
+  // Pagination params.
+  common.v1.PaginationRequest pagination = 2;
+  // Optional product status filter (UNSPECIFIED = no filter).
+  JobProductStatus status = 3;
+}
+
+// ListCalcJobProductsResponse returns a page of product-level execution rows.
+message ListCalcJobProductsResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Page of product execution rows.
+  repeated CalJobProduct items = 2;
+  // Pagination metadata.
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// CancelCalcJobRequest cancels a running job.
+message CancelCalcJobRequest {
+  // Job id; must be > 0.
+  int64 job_id = 1 [(buf.validate.field).int64.gt = 0];
+  // Optional human reason for the cancellation.
+  string reason = 2;
+}
+
+// CancelCalcJobResponse returns the cancelled job.
+message CancelCalcJobResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Cancelled job.
+  CalJob job = 2;
+}
+
+// GetCostResultRequest fetches the active cost result for a product/period/type.
+message GetCostResultRequest {
+  // Product sys id; must be > 0.
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+  // Period in YYYYMM format.
+  string period = 2 [(buf.validate.field).string.pattern = "^[0-9]{6}$"];
+  // Calculation flavor; cannot be UNSPECIFIED.
+  CalculationType calculation_type = 3 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+}
+
+// GetCostResultResponse returns the requested cost result.
+message GetCostResultResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Active cost result row.
+  CostResult result = 2;
+}
+
+// ListCostResultsRequest lists active (non-superseded) cost results across
+// products for a period + calc type, with optional product search + status.
+// All filters are optional: empty period means "latest available period".
+message ListCostResultsRequest {
+  // Pagination params.
+  common.v1.PaginationRequest pagination = 1;
+  // Period in YYYYMM (empty = latest period present in cst_product_cost).
+  string period = 2 [(buf.validate.field).string = {pattern: "^$|^[0-9]{6}$"}];
+  // Calculation type filter (UNSPECIFIED = no filter).
+  CalculationType calculation_type = 3;
+  // Product code/name search (case-insensitive, optional).
+  string search = 4 [(buf.validate.field).string.max_len = 100];
+  // Result status filter (UNSPECIFIED = active only, i.e. exclude SUPERSEDED).
+  CostResultStatus status = 5;
+}
+
+// ListCostResultsResponse returns a page of cost results across products.
+message ListCostResultsResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Page of cost result rows (resolved product code/name/uom; no UUIDs).
+  repeated CostResult items = 2;
+  // Pagination metadata.
+  common.v1.PaginationResponse pagination = 3;
+  // The period actually used (resolved when request period was empty).
+  string resolved_period = 4;
+}
+
+// GetCostBreakdownRequest fetches the full drill-down for a cost.
+message GetCostBreakdownRequest {
+  // Product sys id; must be > 0.
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+  // Period in YYYYMM format.
+  string period = 2 [(buf.validate.field).string.pattern = "^[0-9]{6}$"];
+  // Calculation flavor; cannot be UNSPECIFIED.
+  CalculationType calculation_type = 3 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+}
+
+// GetCostBreakdownResponse returns the cost breakdown.
+message GetCostBreakdownResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Full breakdown: summary + by-level + rm details + formula trace.
+  CostBreakdown breakdown = 2;
+}
+
+// ListCostHistoryRequest lists versioned cost history for a product.
+message ListCostHistoryRequest {
+  // Product sys id; must be > 0.
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+  // Pagination params.
+  common.v1.PaginationRequest pagination = 2;
+  // Optional calculation type filter (UNSPECIFIED = no filter).
+  CalculationType calculation_type = 3;
+}
+
+// ListCostHistoryResponse returns a page of cost history rows.
+message ListCostHistoryResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Page of history rows (includes superseded).
+  repeated CostHistoryEntry items = 2;
+  // Pagination metadata.
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// VerifyCostResultRequest marks a cost result as verified.
+message VerifyCostResultRequest {
+  // Cost id; must be > 0.
+  int64 cost_id = 1 [(buf.validate.field).int64.gt = 0];
+}
+
+// VerifyCostResultResponse returns the verified cost result.
+message VerifyCostResultResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Updated cost result.
+  CostResult result = 2;
+}
+
+// ApproveCostResultRequest marks a cost result as approved.
+message ApproveCostResultRequest {
+  // Cost id; must be > 0.
+  int64 cost_id = 1 [(buf.validate.field).int64.gt = 0];
+}
+
+// ApproveCostResultResponse returns the approved cost result.
+message ApproveCostResultResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Updated cost result.
+  CostResult result = 2;
+}
+
+// ProcessChunkInternalRequest carries the data the worker needs to compute
+// one chunk of products. Internal RPC: only finance-cost-worker invokes it.
+message ProcessChunkInternalRequest {
+  // Job id this chunk belongs to; must be > 0.
+  int64 job_id = 1 [(buf.validate.field).int64.gt = 0];
+  // Chunk id (cal_job_chunk.cjc_chunk_id) -- the row this chunk updates.
+  int64 chunk_id = 2 [(buf.validate.field).int64.gt = 0];
+  // Period in YYYYMM format (e.g., 202604).
+  string period = 3 [(buf.validate.field).string.pattern = "^[0-9]{6}$"];
+  // Calculation flavor; cannot be UNSPECIFIED.
+  CalculationType calculation_type = 4 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  // Product sys ids to compute; at least one required.
+  repeated int64 product_ids = 5 [(buf.validate.field).repeated.min_items = 1];
+  // Actor (worker id) recorded in audit + result rows.
+  string actor = 6 [(buf.validate.field).string.min_len = 1];
+}
+
+// ProcessChunkInternalResponse summarizes per-status counts.
+message ProcessChunkInternalResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Number of products that computed + persisted successfully.
+  int32 success_count = 2;
+  // Number of products that failed with non-recoverable errors.
+  int32 failed_count = 3;
+  // Number of products that were BLOCKED (missing CAPP, missing RM cost, etc.).
+  int32 blocked_count = 4;
+}
+
+// CostCalcService runs the cost calculation engine and exposes results.
+service CostCalcService {
+  // TriggerCalcJob creates a new calc job batch.
+  // Scope determines whether it covers a single product, a route, a filtered
+  // set, or ALL products. Required permission: finance.cost.caljob.trigger.
+  rpc TriggerCalcJob(TriggerCalcJobRequest) returns (TriggerCalcJobResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/calc-jobs/trigger"
+      body: "*"
+    };
+  }
+  // GetCalcJob fetches one calc job by id.
+  // Required permission: finance.cost.caljob.view.
+  rpc GetCalcJob(GetCalcJobRequest) returns (GetCalcJobResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/calc-jobs/{job_id}"};
+  }
+  // ListCalcJobs returns a paginated list of calc jobs with optional filters.
+  // Required permission: finance.cost.caljob.view.
+  rpc ListCalcJobs(ListCalcJobsRequest) returns (ListCalcJobsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/calc-jobs"};
+  }
+  // ListCalcJobChunks returns chunks belonging to one job.
+  // Required permission: finance.cost.caljob.view.
+  rpc ListCalcJobChunks(ListCalcJobChunksRequest) returns (ListCalcJobChunksResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/calc-jobs/{job_id}/chunks"};
+  }
+  // ListCalcJobProducts returns per-product execution rows for one job.
+  // Required permission: finance.cost.caljob.view.
+  rpc ListCalcJobProducts(ListCalcJobProductsRequest) returns (ListCalcJobProductsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/calc-jobs/{job_id}/products"};
+  }
+  // CancelCalcJob cancels a running calc job.
+  // Required permission: finance.cost.caljob.cancel.
+  rpc CancelCalcJob(CancelCalcJobRequest) returns (CancelCalcJobResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/calc-jobs/{job_id}/cancel"
+      body: "*"
+    };
+  }
+  // GetCostResult returns the active cost result for a product/period/type.
+  // Required permission: finance.cost.result.view.
+  rpc GetCostResult(GetCostResultRequest) returns (GetCostResultResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-results/{product_sys_id}/{period}/{calculation_type}"};
+  }
+  // ListCostResults lists active cost results across products for a period.
+  // Required permission: finance.cost.result.view.
+  rpc ListCostResults(ListCostResultsRequest) returns (ListCostResultsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-results"};
+  }
+  // GetCostBreakdown returns by-level + rm-details + formula-trace for a cost.
+  // Required permission: finance.cost.result.view.
+  rpc GetCostBreakdown(GetCostBreakdownRequest) returns (GetCostBreakdownResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-results/{product_sys_id}/{period}/{calculation_type}/breakdown"};
+  }
+  // ListCostHistory returns versioned cost history (incl. superseded) for a product.
+  // Required permission: finance.cost.history.view.
+  rpc ListCostHistory(ListCostHistoryRequest) returns (ListCostHistoryResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-results/{product_sys_id}/history"};
+  }
+  // VerifyCostResult marks a cost result as verified.
+  // Required permission: finance.cost.result.verify.
+  rpc VerifyCostResult(VerifyCostResultRequest) returns (VerifyCostResultResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-results/{cost_id}/verify"
+      body: "*"
+    };
+  }
+  // ApproveCostResult marks a cost result as approved.
+  // Required permission: finance.cost.result.approve.
+  rpc ApproveCostResult(ApproveCostResultRequest) returns (ApproveCostResultResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-results/{cost_id}/approve"
+      body: "*"
+    };
+  }
+  // ProcessChunkInternal computes one chunk of products synchronously.
+  // Invoked by finance-cost-worker after consuming a chunk message from RMQ.
+  // NOT exposed via REST gateway; intended for service-to-service traffic only.
+  // Required permission: finance.cost.caljob.trigger.
+  rpc ProcessChunkInternal(ProcessChunkInternalRequest) returns (ProcessChunkInternalResponse);
+}
