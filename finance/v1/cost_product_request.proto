@@ -61,6 +61,8 @@ message CostProductRequest {
   int64 existing_product_sys_id = 28;
   // Active route head linked to this request (many requests → one route head when spec matches).
   int64 linked_route_head_id = 29;
+  // IAM workflow instance ID linked to this request (empty if no workflow attached).
+  string wfl_instance_id = 30;
 }
 
 // =============================================================================

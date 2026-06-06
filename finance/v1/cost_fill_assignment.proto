@@ -1,0 +1,336 @@
+syntax = "proto3";
+
+package finance.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "google/api/annotations.proto";
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+// FillTaskStatus represents the lifecycle state of a cost fill task.
+enum FillTaskStatus {
+  FILL_TASK_STATUS_UNSPECIFIED = 0;
+  // Task is active and awaiting a filler to claim it.
+  FILL_TASK_STATUS_ACTIVE = 1;
+  // Task has been claimed and is being filled.
+  FILL_TASK_STATUS_FILLING = 2;
+  // All parameters have been filled; awaiting submission.
+  FILL_TASK_STATUS_FILLED = 3;
+  // Task submitted and awaiting approver decision.
+  FILL_TASK_STATUS_APPROVAL_PENDING = 4;
+  // Task approved by the designated approver.
+  FILL_TASK_STATUS_APPROVED = 5;
+  // Task rejected; filler must revise and resubmit.
+  FILL_TASK_STATUS_REJECTED = 6;
+}
+
+// FillActorType identifies whether an actor is a user or department.
+enum FillActorType {
+  FILL_ACTOR_TYPE_UNSPECIFIED = 0;
+  // Actor is a specific user (identified by user_id).
+  FILL_ACTOR_TYPE_USER = 1;
+  // Actor is a department (any member may act).
+  FILL_ACTOR_TYPE_DEPT = 2;
+}
+
+// =============================================================================
+// MESSAGES — Config
+// =============================================================================
+
+// LevelAssignmentConfig holds the filler/approver assignment for one route level.
+message LevelAssignmentConfig {
+  // Unique config record ID.
+  int64 config_id = 1;
+  // Tier scope: GLOBAL | PRODUCT | REQUEST.
+  string tier = 2;
+  // Route level this config applies to (1 = FG, 2..N = upstream).
+  int32 route_level = 3;
+  // Set for PRODUCT tier: the product sys ID this config is scoped to.
+  int64 product_sys_id = 4;
+  // Set for REQUEST tier: the request ID this config is scoped to.
+  int64 request_id = 5;
+  // Filler actor type (USER | DEPT).
+  string filler_type = 6;
+  // Filler actor value (user_id or dept_id).
+  string filler_value = 7;
+  // Approver actor type (USER | DEPT).
+  string approver_type = 8;
+  // Approver actor value (user_id or dept_id).
+  string approver_value = 9;
+  // Whether the task must be re-approved when any parameter value changes.
+  bool reapprove_on_change = 10;
+  // SLA hours allowed for the fill phase before escalation.
+  int32 sla_fill_hours = 11;
+  // SLA hours allowed for the approval phase before escalation.
+  int32 sla_approve_hours = 12;
+}
+
+// =============================================================================
+// MESSAGES — Task
+// =============================================================================
+
+// FillTask represents one cost-fill assignment for a specific route level on a request.
+message FillTask {
+  // Unique task ID.
+  int64 task_id = 1;
+  // Parent cost product request ID.
+  int64 request_id = 2;
+  // Route head the task is associated with.
+  int64 route_head_id = 3;
+  // Route level (1 = FG, 2..N = upstream).
+  int32 route_level = 4;
+  // Filler actor type (USER | DEPT).
+  string filler_type = 5;
+  // Filler actor value (user_id or dept_id).
+  string filler_value = 6;
+  // Approver actor type (USER | DEPT).
+  string approver_type = 7;
+  // Approver actor value (user_id or dept_id).
+  string approver_value = 8;
+  // Current task status.
+  string status = 9;
+  // User who claimed the task (empty if unclaimed).
+  string claimed_by = 10;
+  // Whether approval must be re-triggered on parameter changes.
+  bool reapprove_on_change = 11;
+  // SLA hours for fill phase.
+  int32 sla_fill_hours = 12;
+  // SLA hours for approval phase.
+  int32 sla_approve_hours = 13;
+  // Total number of parameters to fill.
+  int32 total_params = 14;
+  // Number of parameters already filled.
+  int32 filled_params = 15;
+  // Timestamp when the task was activated (ISO 8601).
+  string activated_at = 16;
+  // Approval history for this task.
+  repeated FillApproval approvals = 17;
+}
+
+// FillApproval records one approver decision on a fill task.
+message FillApproval {
+  // Unique approval record ID.
+  int64 approval_id = 1;
+  // Parent task ID.
+  int64 task_id = 2;
+  // Decision: APPROVED | REJECTED.
+  string decision = 3;
+  // User who made the decision.
+  string decided_by = 4;
+  // Timestamp of the decision (ISO 8601).
+  string decided_at = 5;
+  // Optional note from the approver.
+  string note = 6;
+  // Trigger context (MANUAL | AUTO).
+  string trigger = 7;
+}
+
+// =============================================================================
+// Config service requests/responses
+// =============================================================================
+
+// UpsertLevelConfigRequest creates or replaces the assignment config for a level+tier.
+message UpsertLevelConfigRequest {
+  // Route level to configure (must be >= 1).
+  int32 route_level = 1 [(buf.validate.field).int32.gte = 1];
+  // Tier scope: GLOBAL, PRODUCT, or REQUEST.
+  string tier = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 10
+  }];
+  // Required for PRODUCT tier: the target product sys ID.
+  int64 product_sys_id = 3;
+  // Required for REQUEST tier: the target request ID.
+  int64 request_id = 4;
+  // Filler actor type identifier.
+  string filler_type = 5 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 10
+  }];
+  // Filler actor value (user_id or dept_id).
+  string filler_value = 6 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  // Approver actor type identifier (optional).
+  string approver_type = 7;
+  // Approver actor value (optional).
+  string approver_value = 8;
+  // Whether re-approval is triggered on parameter change.
+  bool reapprove_on_change = 9;
+  // SLA hours for fill phase (0 = no SLA).
+  int32 sla_fill_hours = 10;
+  // SLA hours for approval phase (0 = no SLA).
+  int32 sla_approve_hours = 11;
+}
+
+// UpsertLevelConfigResponse confirms the upsert.
+message UpsertLevelConfigResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// DeleteGlobalConfigRequest removes the GLOBAL config for a route level.
+message DeleteGlobalConfigRequest {
+  // Route level whose global config should be deleted.
+  int32 route_level = 1 [(buf.validate.field).int32.gte = 1];
+}
+
+// DeleteGlobalConfigResponse confirms the deletion.
+message DeleteGlobalConfigResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// ListGlobalConfigsRequest is empty; returns all global-tier configs.
+message ListGlobalConfigsRequest {}
+
+// ListGlobalConfigsResponse returns all global-tier level configs.
+message ListGlobalConfigsResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // List of global-tier assignment configs.
+  repeated LevelAssignmentConfig data = 2;
+}
+
+// =============================================================================
+// Task service requests/responses
+// =============================================================================
+
+// ListFillTasksRequest fetches all fill tasks for a given cost product request.
+message ListFillTasksRequest {
+  // Parent cost product request ID.
+  int64 request_id = 1 [(buf.validate.field).int64.gt = 0];
+}
+
+// ListFillTasksResponse returns all fill tasks for the request.
+message ListFillTasksResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+  // Fill tasks ordered by route level.
+  repeated FillTask data = 2;
+}
+
+// ClaimFillTaskRequest marks the authenticated user as the active filler.
+message ClaimFillTaskRequest {
+  // Task to claim.
+  int64 task_id = 1 [(buf.validate.field).int64.gt = 0];
+}
+
+// ClaimFillTaskResponse confirms the claim.
+message ClaimFillTaskResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// SubmitFillTaskRequest moves a filled task into APPROVAL_PENDING.
+message SubmitFillTaskRequest {
+  // Task to submit.
+  int64 task_id = 1 [(buf.validate.field).int64.gt = 0];
+  // Parent request ID for validation.
+  int64 request_id = 2 [(buf.validate.field).int64.gt = 0];
+}
+
+// SubmitFillTaskResponse confirms submission.
+message SubmitFillTaskResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// ApproveFillTaskRequest approves a pending fill task.
+message ApproveFillTaskRequest {
+  // Task to approve.
+  int64 task_id = 1 [(buf.validate.field).int64.gt = 0];
+  // Parent request ID for validation.
+  int64 request_id = 2 [(buf.validate.field).int64.gt = 0];
+  // Optional note from the approver.
+  string note = 3;
+}
+
+// ApproveFillTaskResponse confirms approval.
+message ApproveFillTaskResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// RejectFillTaskRequest rejects a pending fill task and sends it back to the filler.
+message RejectFillTaskRequest {
+  // Task to reject.
+  int64 task_id = 1 [(buf.validate.field).int64.gt = 0];
+  // Reason for rejection (shown to the filler).
+  string reason = 2;
+}
+
+// RejectFillTaskResponse confirms rejection.
+message RejectFillTaskResponse {
+  // Standard response metadata.
+  common.v1.BaseResponse base = 1;
+}
+
+// =============================================================================
+// SERVICES
+// =============================================================================
+
+// CostLevelAssignmentConfigService manages global/product/request fill configs.
+service CostLevelAssignmentConfigService {
+  // UpsertLevelConfig creates or replaces the filler/approver config for a level+tier.
+  rpc UpsertLevelConfig(UpsertLevelConfigRequest) returns (UpsertLevelConfigResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/finance/fill-configs"
+      body: "*"
+    };
+  }
+
+  // DeleteGlobalConfig removes the global-tier config for a route level.
+  rpc DeleteGlobalConfig(DeleteGlobalConfigRequest) returns (DeleteGlobalConfigResponse) {
+    option (google.api.http) = {delete: "/api/v1/finance/fill-configs/global/{route_level}"};
+  }
+
+  // ListGlobalConfigs returns all global-tier assignment configs.
+  rpc ListGlobalConfigs(ListGlobalConfigsRequest) returns (ListGlobalConfigsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/fill-configs/global"};
+  }
+}
+
+// CostFillTaskService manages the fill task lifecycle for cost product requests.
+service CostFillTaskService {
+  // ListFillTasks returns all fill tasks for a cost product request.
+  rpc ListFillTasks(ListFillTasksRequest) returns (ListFillTasksResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/fill-tasks"};
+  }
+
+  // ClaimFillTask assigns the authenticated user as the active filler.
+  rpc ClaimFillTask(ClaimFillTaskRequest) returns (ClaimFillTaskResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/fill-tasks/{task_id}/claim"
+      body: "*"
+    };
+  }
+
+  // SubmitFillTask marks all parameters as filled and requests approver review.
+  rpc SubmitFillTask(SubmitFillTaskRequest) returns (SubmitFillTaskResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/fill-tasks/{task_id}/submit"
+      body: "*"
+    };
+  }
+
+  // ApproveFillTask approves a submitted fill task.
+  rpc ApproveFillTask(ApproveFillTaskRequest) returns (ApproveFillTaskResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/fill-tasks/{task_id}/approve"
+      body: "*"
+    };
+  }
+
+  // RejectFillTask rejects a submitted fill task and returns it to the filler.
+  rpc RejectFillTask(RejectFillTaskRequest) returns (RejectFillTaskResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/fill-tasks/{task_id}/reject"
+      body: "*"
+    };
+  }
+}

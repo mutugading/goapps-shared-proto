@@ -126,6 +126,16 @@ service AuthService {
       body: "*"
     };
   }
+
+  // ValidateUnlockPassword verifies the authenticated user's password without changing it.
+  // Used by sensitive UIs (e.g., fill-task unlock dialogs) to re-confirm identity.
+  // The user identity is resolved from the JWT token; no user_id in the request.
+  rpc ValidateUnlockPassword(ValidateUnlockPasswordRequest) returns (ValidateUnlockPasswordResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/auth/validate-unlock"
+      body: "*"
+    };
+  }
 }
 
 // =============================================================================
@@ -474,4 +484,21 @@ message ResendEmailVerificationResponse {
   string message = 2;
   // Code expiry in seconds.
   int32 expires_in = 3;
+}
+
+// =============================================================================
+// MESSAGES - Validate Unlock Password
+// =============================================================================
+
+// ValidateUnlockPasswordRequest re-confirms the authenticated user's password.
+// The user identity is resolved server-side from the JWT bearer token.
+message ValidateUnlockPasswordRequest {
+  // Password to validate (must not be empty).
+  string password = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// ValidateUnlockPasswordResponse confirms whether the password is valid.
+message ValidateUnlockPasswordResponse {
+  // Standard response metadata. is_success=true means the password matched.
+  common.v1.BaseResponse base = 1;
 }
