@@ -18,6 +18,16 @@ import "google/api/annotations.proto";
 // action_payload so the frontend can render type-specific UI (download,
 // approve/reject, navigate, etc.).
 service NotificationService {
+  // RequestNotification creates notifications for one or more recipients
+  // resolved dynamically from RecipientRules. Used by cross-service
+  // notification dispatch (e.g. Finance → IAM).
+  rpc RequestNotification(RequestNotificationRequest) returns (RequestNotificationResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/iam/notifications/request"
+      body: "*"
+    };
+  }
+
   // CreateNotification creates a new notification for a user. Used by other
   // services (e.g. finance worker emitting EXPORT_READY).
   rpc CreateNotification(CreateNotificationRequest) returns (CreateNotificationResponse) {
@@ -312,4 +322,81 @@ message StreamNotificationsRequest {
   // Optional cursor for catchup; empty string starts from "now".
   // Format mirrors StreamNotificationsResponse.event_id.
   string since = 1 [(buf.validate.field).string.max_len = 100];
+}
+
+// =============================================================================
+// REQUEST NOTIFICATION — Rule-based multi-recipient dispatch
+// =============================================================================
+
+// RecipientRuleType determines how recipients are resolved for a notification.
+enum RecipientRuleType {
+  RECIPIENT_RULE_TYPE_UNSPECIFIED = 0;
+  RECIPIENT_RULE_TYPE_BY_USER_ID = 1; // Resolve by explicit user UUID.
+  RECIPIENT_RULE_TYPE_BY_PERMISSION = 2; // All users holding the given permission code.
+  RECIPIENT_RULE_TYPE_BY_DEPT = 3; // All users in the given department UUID.
+  RECIPIENT_RULE_TYPE_BY_ROLE = 4; // All users assigned the given role UUID.
+}
+
+// RecipientRule is a single rule for resolving notification recipients.
+message RecipientRule {
+  RecipientRuleType rule_type = 1 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  // value interpretation depends on rule_type:
+  //   BY_USER_ID → user UUID
+  //   BY_PERMISSION → permission code (e.g. "finance.master.uom.view")
+  //   BY_DEPT → department UUID
+  //   BY_ROLE → role UUID
+  string value = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+}
+
+// RequestNotificationRequest is used by external services (e.g. Finance) to
+// dispatch a notification to one or more recipients resolved by rules.
+message RequestNotificationRequest {
+  // event_type identifies the notification event for deduplication and display.
+  string event_type = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+  // source_service is the originating service name (e.g. "finance").
+  string source_service = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 50
+  }];
+  // source_type correlates the notification to a feature (e.g. "finance.rm_cost_export").
+  string source_type = 3 [(buf.validate.field).string.max_len = 50];
+  // source_id is the identifier of the source entity (e.g. job UUID).
+  string source_id = 4 [(buf.validate.field).string.max_len = 100];
+  // recipient_rules must contain at least one rule.
+  repeated RecipientRule recipient_rules = 5 [(buf.validate.field).repeated.min_items = 1];
+  NotificationType type = 6 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  NotificationSeverity severity = 7 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  string title = 8 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  string body = 9 [(buf.validate.field).string.max_len = 4000];
+  NotificationActionType action_type = 10 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  // action_payload is a JSON-encoded string whose shape depends on action_type.
+  string action_payload = 11 [(buf.validate.field).string.max_len = 8192];
+  // idempotency_key prevents duplicate dispatch on retry; optional.
+  string idempotency_key = 12 [(buf.validate.field).string.max_len = 200];
+}
+
+// RequestNotificationResponse returns the dispatch result.
+message RequestNotificationResponse {
+  common.v1.BaseResponse base = 1;
+  // event_id is a server-generated identifier for this dispatch event.
+  string event_id = 2;
+  // recipient_count is the number of users notified.
+  int32 recipient_count = 3;
 }
