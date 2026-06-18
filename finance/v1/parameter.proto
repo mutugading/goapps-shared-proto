@@ -298,7 +298,7 @@ message ListParametersRequest {
     ]
   }];
   // Filter by lookup_fill_group_code. Empty string = no filter.
-  string lookup_fill_group_code_filter = 9;
+  string lookup_fill_group_code_filter = 9 [(buf.validate.field).string.max_len = 20];
 }
 
 // ListParametersResponse is the response for listing parameters.
