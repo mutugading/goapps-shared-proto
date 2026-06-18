@@ -55,6 +55,8 @@ message RequiredParamEntry {
   string lookup_master_code = 10;
   int32 display_order = 11;
   string display_group = 12;
+  // param_code of the MASTER_LOOKUP trigger param this child belongs to (empty = not a child param).
+  string lookup_fill_group_code = 13;
   // Existing value (zero/empty when not yet bound).
   bool has_value = 20;
   string value_numeric = 21;
@@ -167,6 +169,8 @@ message AvailableParamEntry {
   string lookup_master_code = 10;
   int32 display_order = 11;
   string display_group = 12;
+  // param_code of the MASTER_LOOKUP trigger param this child belongs to (empty = not a child param).
+  string lookup_fill_group_code = 13;
 }
 
 message ListAvailableParamsRequest {
