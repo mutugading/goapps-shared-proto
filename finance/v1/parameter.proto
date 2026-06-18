@@ -83,6 +83,8 @@ message Parameter {
   int32 display_order = 28;
   // Form section: Spec / Machine / Grade / Packing / Cost / etc.
   string display_group = 29;
+  // Descriptive notes or formula hint for this parameter (read-only, populated from seed/migration).
+  string notes = 30;
 }
 
 // =============================================================================
@@ -136,6 +138,8 @@ message CreateParameterRequest {
   int32 display_order = 14 [(buf.validate.field).int32.gte = 0];
   // Display group (optional, max 50 chars). E.g. 'Spec', 'Machine'.
   string display_group = 15 [(buf.validate.field).string.max_len = 50];
+  // Descriptive notes or formula hint (optional, max 500 chars).
+  string notes = 16 [(buf.validate.field).string.max_len = 500];
 }
 
 // CreateParameterResponse is the response for creating a parameter.
@@ -207,6 +211,8 @@ message UpdateParameterRequest {
   optional int32 display_order = 15 [(buf.validate.field).int32.gte = 0];
   // New display group (optional). Set to empty string to clear.
   optional string display_group = 16 [(buf.validate.field).string.max_len = 50];
+  // New notes (optional). Set to empty string to clear.
+  optional string notes = 17 [(buf.validate.field).string.max_len = 500];
 }
 
 // UpdateParameterResponse is the response for updating a parameter.
