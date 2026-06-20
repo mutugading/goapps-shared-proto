@@ -35,6 +35,8 @@ enum ParamCategory {
   PARAM_CATEGORY_RATE = 2;
   // Calculated parameter - computed from other parameters.
   PARAM_CATEGORY_CALCULATED = 3;
+  // PARAM_CATEGORY_MASTER_LOOKUP: selector from a master table; triggers auto-fill of child params.
+  PARAM_CATEGORY_MASTER_LOOKUP = 4;
 }
 
 // =============================================================================
@@ -83,6 +85,12 @@ message Parameter {
   int32 display_order = 28;
   // Form section: Spec / Machine / Grade / Packing / Cost / etc.
   string display_group = 29;
+  // Descriptive notes or formula hint for this parameter (read-only, populated from seed/migration).
+  string notes = 30;
+  // param_code of the MASTER_LOOKUP trigger param this child belongs to (empty = not a child param).
+  string lookup_fill_group_code = 31;
+  // Column name in the master entity to read value from (e.g., "mc_speed").
+  string lookup_source_column = 32;
 }
 
 // =============================================================================
@@ -136,6 +144,12 @@ message CreateParameterRequest {
   int32 display_order = 14 [(buf.validate.field).int32.gte = 0];
   // Display group (optional, max 50 chars). E.g. 'Spec', 'Machine'.
   string display_group = 15 [(buf.validate.field).string.max_len = 50];
+  // Descriptive notes or formula hint (optional, max 500 chars).
+  string notes = 16 [(buf.validate.field).string.max_len = 500];
+  // Fill group: param_code of the parent MASTER_LOOKUP param (optional, max 20 chars).
+  string lookup_fill_group_code = 17 [(buf.validate.field).string.max_len = 20];
+  // Source column in the master table (optional, max 50 chars).
+  string lookup_source_column = 18 [(buf.validate.field).string.max_len = 50];
 }
 
 // CreateParameterResponse is the response for creating a parameter.
@@ -207,6 +221,12 @@ message UpdateParameterRequest {
   optional int32 display_order = 15 [(buf.validate.field).int32.gte = 0];
   // New display group (optional). Set to empty string to clear.
   optional string display_group = 16 [(buf.validate.field).string.max_len = 50];
+  // New notes (optional). Set to empty string to clear.
+  optional string notes = 17 [(buf.validate.field).string.max_len = 500];
+  // New fill group code (optional). Set to empty string to clear.
+  optional string lookup_fill_group_code = 18 [(buf.validate.field).string.max_len = 20];
+  // New source column (optional). Set to empty string to clear.
+  optional string lookup_source_column = 19 [(buf.validate.field).string.max_len = 50];
 }
 
 // UpdateParameterResponse is the response for updating a parameter.
@@ -277,6 +297,8 @@ message ListParametersRequest {
       "desc"
     ]
   }];
+  // Filter by lookup_fill_group_code. Empty string = no filter.
+  string lookup_fill_group_code_filter = 9 [(buf.validate.field).string.max_len = 20];
 }
 
 // ListParametersResponse is the response for listing parameters.

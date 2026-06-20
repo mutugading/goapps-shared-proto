@@ -55,6 +55,8 @@ message RequiredParamEntry {
   string lookup_master_code = 10;
   int32 display_order = 11;
   string display_group = 12;
+  // param_code of the MASTER_LOOKUP trigger param this child belongs to (empty = not a child param).
+  string lookup_fill_group_code = 13;
   // Existing value (zero/empty when not yet bound).
   bool has_value = 20;
   string value_numeric = 21;
@@ -167,6 +169,8 @@ message AvailableParamEntry {
   string lookup_master_code = 10;
   int32 display_order = 11;
   string display_group = 12;
+  // param_code of the MASTER_LOOKUP trigger param this child belongs to (empty = not a child param).
+  string lookup_fill_group_code = 13;
 }
 
 message ListAvailableParamsRequest {
@@ -207,6 +211,52 @@ message UpdateApplicableParamRequest {
 }
 
 message UpdateApplicableParamResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+// ParamWithValue carries param code, name, and current display value for the remove-preview dialog.
+message ParamWithValue {
+  string param_code = 1;
+  string param_name = 2;
+  string current_value = 3;
+}
+
+// AddApplicableParamWithChildrenRequest adds a MASTER_LOOKUP param and all its child params atomically.
+message AddApplicableParamWithChildrenRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+  string param_id = 2 [(buf.validate.field).string.uuid = true];
+  bool is_required = 3;
+  // 0 means inherit mst_parameter.display_order.
+  int32 display_order = 4 [(buf.validate.field).int32.gte = 0];
+}
+
+// AddApplicableParamWithChildrenResponse is the response for adding a MASTER_LOOKUP param with children.
+message AddApplicableParamWithChildrenResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+// GetRemoveApplicablePreviewRequest is the request for previewing the params to be removed.
+message GetRemoveApplicablePreviewRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+  string param_id = 2 [(buf.validate.field).string.uuid = true];
+}
+
+// GetRemoveApplicablePreviewResponse lists trigger + children for the confirm-delete dialog.
+message GetRemoveApplicablePreviewResponse {
+  common.v1.BaseResponse base = 1;
+  string trigger_param_code = 2;
+  string trigger_param_name = 3;
+  repeated ParamWithValue children = 4;
+}
+
+// RemoveApplicableParamWithChildrenRequest removes a MASTER_LOOKUP param and all its children.
+message RemoveApplicableParamWithChildrenRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gt = 0];
+  string param_id = 2 [(buf.validate.field).string.uuid = true];
+}
+
+// RemoveApplicableParamWithChildrenResponse is the response for removing a MASTER_LOOKUP param with children.
+message RemoveApplicableParamWithChildrenResponse {
   common.v1.BaseResponse base = 1;
 }
 
@@ -271,6 +321,30 @@ service CostProductParameterService {
   rpc RemoveApplicableParam(RemoveApplicableParamRequest) returns (RemoveApplicableParamResponse) {
     option (google.api.http) = {
       post: "/api/v1/finance/cost-product-parameters/applicable/remove"
+      body: "*"
+    };
+  }
+
+  // AddApplicableParamWithChildren adds a MASTER_LOOKUP param + all its child params atomically.
+  rpc AddApplicableParamWithChildren(AddApplicableParamWithChildrenRequest) returns (AddApplicableParamWithChildrenResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-parameters/applicable/add-with-children"
+      body: "*"
+    };
+  }
+
+  // GetRemoveApplicablePreview returns trigger + children for the confirm-delete dialog.
+  rpc GetRemoveApplicablePreview(GetRemoveApplicablePreviewRequest) returns (GetRemoveApplicablePreviewResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-parameters/applicable/remove-preview"
+      body: "*"
+    };
+  }
+
+  // RemoveApplicableParamWithChildren removes a MASTER_LOOKUP param + all children + CPP values atomically.
+  rpc RemoveApplicableParamWithChildren(RemoveApplicableParamWithChildrenRequest) returns (RemoveApplicableParamWithChildrenResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-parameters/applicable/remove-with-children"
       body: "*"
     };
   }

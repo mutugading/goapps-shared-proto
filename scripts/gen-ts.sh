@@ -48,6 +48,61 @@ echo "Step 4: Generating TypeScript types..."
 buf generate --template buf.gen.ts.yaml
 
 echo ""
+echo "Step 5: Stripping _unknownFields from service definitions..."
+# _unknownFields contain binary-encoded google.api.http annotations (HTTP paths).
+# These are not needed by the BFF gRPC client and inflate file sizes significantly.
+python3 - "$OUTPUT_DIR" << 'PYEOF'
+import sys, os
+
+output_dir = sys.argv[1]
+total_removed = 0
+
+for root, dirs, files in os.walk(output_dir):
+    for fname in files:
+        if not fname.endswith('.ts'):
+            continue
+        path = os.path.join(root, fname)
+        with open(path, 'r') as f:
+            lines = f.readlines()
+
+        out = []
+        i = 0
+        removed = 0
+        while i < len(lines):
+            line = lines[i]
+            # Detect start of: options: {
+            stripped = line.rstrip()
+            if stripped.endswith('options: {') and i + 1 < len(lines):
+                next_stripped = lines[i + 1].strip()
+                if next_stripped.startswith('_unknownFields:'):
+                    # Replace the entire options: { _unknownFields: {...}, } block with options: {}
+                    indent = len(line) - len(line.lstrip())
+                    out.append(' ' * indent + 'options: {},\n')
+                    # Skip lines until we find the closing brace matching 'options: {'
+                    depth = 1
+                    i += 1
+                    while i < len(lines) and depth > 0:
+                        for ch in lines[i]:
+                            if ch == '{':
+                                depth += 1
+                            elif ch == '}':
+                                depth -= 1
+                        removed += 1
+                        i += 1
+                    continue
+            out.append(line)
+            i += 1
+
+        if removed > 0:
+            with open(path, 'w') as f:
+                f.writelines(out)
+            total_removed += removed
+            print(f"  {fname}: removed {removed} lines of _unknownFields")
+
+print(f"  Total lines removed: {total_removed}")
+PYEOF
+
+echo ""
 echo "============================================"
 echo "✓ TypeScript types generated successfully!"
 echo "============================================"

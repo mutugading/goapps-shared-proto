@@ -1461,6 +1461,33 @@ message DownloadMBSpinTemplateResponse {
 }
 
 // =============================================================================
+// MESSAGES — Yarn Lookup Fill (auto-populate CAPP from master selection)
+// =============================================================================
+
+// GetLookupFillValuesRequest requests auto-fill values from a master lookup selection.
+message GetLookupFillValuesRequest {
+  // lookup_master_code from mst_parameter.lookup_master_code.
+  // Valid values: "MACHINE" | "INTERMINGLING" | "PRODUCT_GRADE" | "MB_HEAD" | "BOX_BOBBIN_COST"
+  string lookup_master_code = 1 [(buf.validate.field).string.min_len = 1];
+  // Key of the selected master record (e.g., mc_code, intm_code, pg_code, mbh_mb_costing, bbc_code).
+  string selected_key = 2 [(buf.validate.field).string.min_len = 1];
+  // Source param code that triggered the lookup — used to resolve CAP vs DEL variant for BOX_BOBBIN_COST.
+  // Optional; required only for BOX_BOBBIN_COST.
+  string source_param_code = 3;
+}
+
+// GetLookupFillValuesResponse returns numeric and text fills to auto-populate CAPP params.
+message GetLookupFillValuesResponse {
+  common.v1.BaseResponse base = 1;
+  // param_code → numeric value to fill (e.g., {"MC_SPEED": 800.0, "MC_EFFICIENCY": 92.0}).
+  map<string, double> numeric_fills = 2;
+  // param_code → text value to fill (e.g., {"MB_DYE_NAME": "CIBA RED"}).
+  map<string, string> text_fills = 3;
+  // Human-readable label for UI toast (e.g., "Barmag DTY Line D — 504 pos, 800 m/min").
+  string display_label = 4;
+}
+
+// =============================================================================
 // SERVICES
 // =============================================================================
 
@@ -1742,5 +1769,291 @@ service MBSpinService {
   // DownloadMBSpinTemplate downloads the Excel import template.
   rpc DownloadMBSpinTemplate(DownloadMBSpinTemplateRequest) returns (DownloadMBSpinTemplateResponse) {
     option (google.api.http) = {get: "/api/v1/finance/mb-heads/{mbh_id}/spins/template"};
+  }
+}
+
+// =============================================================================
+// MESSAGES — Lookup Master Registry
+// =============================================================================
+
+// LookupMaster describes a named master table available for MASTER_LOOKUP param dropdowns.
+message LookupMaster {
+  string lm_code = 1;
+  string lm_display_name = 2;
+  string lm_api_path = 3;
+  string lm_code_field = 4;
+  string lm_label_field = 5;
+  bool lm_is_active = 6;
+  // PostgreSQL table name for DB introspection (e.g., "mst_machine").
+  string lm_table_name = 7;
+}
+
+// ListLookupMastersRequest is the request for listing lookup masters.
+message ListLookupMastersRequest {
+  bool active_only = 1;
+}
+
+// ListLookupMastersResponse is the response for listing lookup masters.
+message ListLookupMastersResponse {
+  common.v1.BaseResponse base = 1;
+  repeated LookupMaster data = 2;
+}
+
+// LookupMasterColumn describes one selectable column from a lookup master table.
+message LookupMasterColumn {
+  string lmc_master_code = 1;
+  string lmc_column_name = 2;
+  string lmc_display_name = 3;
+  string lmc_data_type = 4;
+  int32 lmc_sort_order = 5;
+  // UUID primary key — needed for delete.
+  string lmc_id = 6;
+}
+
+// ListLookupMasterColumnsRequest is the request for listing columns of a lookup master.
+message ListLookupMasterColumnsRequest {
+  string master_code = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// ListLookupMasterColumnsResponse is the response for listing lookup master columns.
+message ListLookupMasterColumnsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated LookupMasterColumn data = 2;
+}
+
+// CreateLookupMasterRequest is the request for adding a new master to the registry.
+message CreateLookupMasterRequest {
+  string lm_code = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 30
+    pattern: "^[A-Z][A-Z0-9_]*$"
+  }];
+  string lm_display_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+  // Deprecated: no longer required. Send empty string or omit.
+  string lm_api_path = 3 [(buf.validate.field).string.max_len = 200];
+  // Deprecated: no longer required. Send empty string or omit.
+  string lm_code_field = 4 [(buf.validate.field).string.max_len = 50];
+  // Deprecated: no longer required. Send empty string or omit.
+  string lm_label_field = 5 [(buf.validate.field).string.max_len = 50];
+  // PostgreSQL table name for DB introspection (optional, max 63 chars).
+  optional string lm_table_name = 6 [(buf.validate.field).string.max_len = 63];
+}
+
+// CreateLookupMasterResponse is the response for adding a new master.
+message CreateLookupMasterResponse {
+  common.v1.BaseResponse base = 1;
+  LookupMaster data = 2;
+}
+
+// DeleteLookupMasterRequest is the request for removing a master from the registry.
+message DeleteLookupMasterRequest {
+  string lm_code = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// DeleteLookupMasterResponse is the response for removing a master.
+message DeleteLookupMasterResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+// CreateLookupMasterColumnRequest is the request for adding a fillable column to a master.
+message CreateLookupMasterColumnRequest {
+  string lmc_master_code = 1 [(buf.validate.field).string.min_len = 1];
+  string lmc_column_name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 50
+  }];
+  string lmc_display_name = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+  string lmc_data_type = 4 [(buf.validate.field).string = {
+    in: [
+      "NUMBER",
+      "TEXT"
+    ]
+  }];
+  int32 lmc_sort_order = 5;
+}
+
+// CreateLookupMasterColumnResponse is the response for adding a column.
+message CreateLookupMasterColumnResponse {
+  common.v1.BaseResponse base = 1;
+  LookupMasterColumn data = 2;
+}
+
+// DeleteLookupMasterColumnRequest is the request for removing a column from a master.
+message DeleteLookupMasterColumnRequest {
+  string lmc_id = 1 [(buf.validate.field).string.uuid = true];
+}
+
+// DeleteLookupMasterColumnResponse is the response for removing a column.
+message DeleteLookupMasterColumnResponse {
+  common.v1.BaseResponse base = 1;
+}
+
+// UpdateLookupMasterRequest updates mutable fields of an existing lookup master.
+message UpdateLookupMasterRequest {
+  string lm_code = 1 [(buf.validate.field).string.min_len = 1];
+  optional string lm_display_name = 2 [(buf.validate.field).string.max_len = 100];
+  optional string lm_table_name = 3 [(buf.validate.field).string.max_len = 63];
+  optional bool lm_is_active = 4;
+}
+
+// UpdateLookupMasterResponse is the response for UpdateLookupMaster.
+message UpdateLookupMasterResponse {
+  common.v1.BaseResponse base = 1;
+  LookupMaster data = 2;
+}
+
+// TableColumn is one column from information_schema introspection.
+message TableColumn {
+  // PostgreSQL column name (e.g., "mc_speed").
+  string column_name = 1;
+  // Mapped type: "NUMBER" or "TEXT".
+  string data_type = 2;
+  // Original PostgreSQL type (e.g., "numeric", "character varying").
+  string raw_type = 3;
+  // Position in the table (from information_schema).
+  int32 ordinal_position = 4;
+}
+
+// ListTableColumnsRequest introspects a registered PostgreSQL table's columns.
+message ListTableColumnsRequest {
+  // Table name — must match an lm_table_name value in mst_lookup_master for safety.
+  string table_name = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// ListTableColumnsResponse is the response for ListTableColumns.
+message ListTableColumnsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated TableColumn data = 2;
+}
+
+// MasterOption is one combobox entry (code + label) for the MasterLookupField dropdown.
+message MasterOption {
+  // The "code" field value stored as the param's text value.
+  string value = 1;
+  // The "label" field value displayed to the user.
+  string label = 2;
+}
+
+// ListMasterOptionsRequest queries the registered table to populate a combobox.
+message ListMasterOptionsRequest {
+  // lookup_master_code (e.g., "MACHINE") — used to resolve table_name + code/label fields.
+  string master_code = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// ListMasterOptionsResponse is the response for ListMasterOptions.
+message ListMasterOptionsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated MasterOption data = 2;
+}
+
+// ExportLookupMastersRequest is the request for exporting registry to Excel.
+message ExportLookupMastersRequest {}
+
+// ExportLookupMastersResponse carries the Excel workbook bytes.
+message ExportLookupMastersResponse {
+  common.v1.BaseResponse base = 1;
+  bytes file_content = 2;
+  string file_name = 3;
+}
+
+// ImportLookupMastersRequest carries an Excel workbook to import registry entries.
+message ImportLookupMastersRequest {
+  bytes file_content = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 10485760
+  }];
+  string file_name = 2;
+}
+
+// ImportLookupMastersResponse summarizes the import result.
+message ImportLookupMastersResponse {
+  common.v1.BaseResponse base = 1;
+  int32 success_count = 2;
+  int32 skipped_count = 3;
+  int32 failed_count = 4;
+  repeated string errors = 5;
+}
+
+// =============================================================================
+// SERVICE — LookupMasterService
+// =============================================================================
+
+// LookupMasterService provides lookup master registry for MASTER_LOOKUP param dropdowns.
+service LookupMasterService {
+  // ListLookupMasters returns all registered lookup masters.
+  rpc ListLookupMasters(ListLookupMastersRequest) returns (ListLookupMastersResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/lookup-masters"};
+  }
+  // ListLookupMasterColumns returns the selectable columns for one lookup master.
+  rpc ListLookupMasterColumns(ListLookupMasterColumnsRequest) returns (ListLookupMasterColumnsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/lookup-master-columns"};
+  }
+  // CreateLookupMaster adds a new master to the registry.
+  rpc CreateLookupMaster(CreateLookupMasterRequest) returns (CreateLookupMasterResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/lookup-masters"
+      body: "*"
+    };
+  }
+  // DeleteLookupMaster removes a master from the registry.
+  rpc DeleteLookupMaster(DeleteLookupMasterRequest) returns (DeleteLookupMasterResponse) {
+    option (google.api.http) = {delete: "/api/v1/finance/lookup-masters/{lm_code}"};
+  }
+  // CreateLookupMasterColumn adds a fillable column to a master.
+  rpc CreateLookupMasterColumn(CreateLookupMasterColumnRequest) returns (CreateLookupMasterColumnResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/lookup-master-columns"
+      body: "*"
+    };
+  }
+  // DeleteLookupMasterColumn removes a column from a master.
+  rpc DeleteLookupMasterColumn(DeleteLookupMasterColumnRequest) returns (DeleteLookupMasterColumnResponse) {
+    option (google.api.http) = {delete: "/api/v1/finance/lookup-master-columns/{lmc_id}"};
+  }
+  // UpdateLookupMaster updates display_name, table_name, and/or is_active of an existing master.
+  rpc UpdateLookupMaster(UpdateLookupMasterRequest) returns (UpdateLookupMasterResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/finance/lookup-masters/{lm_code}"
+      body: "*"
+    };
+  }
+  // ListTableColumns introspects a registered PostgreSQL table's columns via information_schema.
+  rpc ListTableColumns(ListTableColumnsRequest) returns (ListTableColumnsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/lookup-master-table-columns"};
+  }
+  // ListMasterOptions returns combobox options (value+label) by querying the registered table.
+  rpc ListMasterOptions(ListMasterOptionsRequest) returns (ListMasterOptionsResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/lookup-master-options"};
+  }
+  // ExportLookupMasters exports all masters and columns to an Excel workbook.
+  rpc ExportLookupMasters(ExportLookupMastersRequest) returns (ExportLookupMastersResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/lookup-masters/export"};
+  }
+  // ImportLookupMasters imports masters and columns from an Excel workbook.
+  rpc ImportLookupMasters(ImportLookupMastersRequest) returns (ImportLookupMastersResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/lookup-masters/import"
+      body: "*"
+    };
+  }
+}
+
+// =============================================================================
+// SERVICE — YarnLookupFill
+// =============================================================================
+
+// YarnLookupFillService provides a unified "fill from master" API used by the CAPP form.
+// Called when the user selects a lookup param value (e.g., a machine code).
+// Returns numeric and text fills to auto-populate related CAPP params.
+service YarnLookupFillService {
+  // GetLookupFillValues returns numeric and text fills to auto-populate CAPP params.
+  rpc GetLookupFillValues(GetLookupFillValuesRequest) returns (GetLookupFillValuesResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/lookup-fill-values"};
   }
 }
