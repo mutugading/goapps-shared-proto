@@ -43,7 +43,9 @@ message ListCostImportJobsRequest {
       "parameter",
       "product_master",
       "capp",
-      "cpp"
+      "cpp",
+      "bulk_product_routing",
+      "bulk_product_routing_export"
     ]
   }];
   string status = 2 [(buf.validate.field).string = {
@@ -141,6 +143,67 @@ message DownloadCostProductParameterTemplateResponse {
   string file_name = 3;
 }
 
+message ImportRowError {
+  int32 row_number = 1;
+  string field = 2;
+  string message = 3;
+}
+
+message BulkSheetValidationResult {
+  string sheet_name = 1;
+  int32 total_rows = 2;
+  int32 error_count = 3;
+  int32 warning_count = 4;
+  repeated ImportRowError sample_errors = 5;
+}
+
+message ImportBulkProductRoutingRequest {
+  bytes file_content = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 52428800
+  }];
+  string file_name = 2;
+  string duplicate_action = 3 [(buf.validate.field).string = {
+    in: [
+      "",
+      "skip",
+      "update"
+    ]
+  }];
+}
+
+message ImportBulkProductRoutingResponse {
+  common.v1.BaseResponse base = 1;
+  int64 job_id = 2;
+  string status = 3;
+}
+
+message ValidateBulkProductRoutingFileRequest {
+  bytes file_content = 1 [(buf.validate.field).bytes = {
+    min_len: 1
+    max_len: 10485760
+  }];
+  string file_name = 2;
+}
+
+message ValidateBulkProductRoutingFileResponse {
+  common.v1.BaseResponse base = 1;
+  bool is_valid = 2;
+  repeated BulkSheetValidationResult sheets = 3;
+}
+
+message ExportBulkProductRoutingRequest {
+  repeated string product_type_codes = 1;
+  bool include_routing = 2;
+  bool active_only = 3;
+}
+
+message ExportBulkProductRoutingResponse {
+  common.v1.BaseResponse base = 1;
+  int64 job_id = 2;
+  string status = 3;
+}
+
 service CostDataImportService {
   rpc GetCostImportJob(GetCostImportJobRequest) returns (GetCostImportJobResponse) {
     option (google.api.http) = {get: "/api/v1/finance/costing/import-jobs/{job_id}"};
@@ -178,5 +241,26 @@ service CostDataImportService {
 
   rpc DownloadCostProductParameterTemplate(DownloadCostProductParameterTemplateRequest) returns (DownloadCostProductParameterTemplateResponse) {
     option (google.api.http) = {get: "/api/v1/finance/costing/cpp/template"};
+  }
+
+  rpc ImportBulkProductRouting(ImportBulkProductRoutingRequest) returns (ImportBulkProductRoutingResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/costing/import/bulk_product_routing"
+      body: "*"
+    };
+  }
+
+  rpc ValidateBulkProductRoutingFile(ValidateBulkProductRoutingFileRequest) returns (ValidateBulkProductRoutingFileResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/costing/validate/bulk_product_routing"
+      body: "*"
+    };
+  }
+
+  rpc ExportBulkProductRouting(ExportBulkProductRoutingRequest) returns (ExportBulkProductRoutingResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/costing/export/bulk_product_routing"
+      body: "*"
+    };
   }
 }
