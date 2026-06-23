@@ -196,6 +196,11 @@ message ExportBulkProductRoutingRequest {
   repeated string product_type_codes = 1;
   bool include_routing = 2;
   bool active_only = 3;
+  // product_sys_ids, when non-empty, restricts the export to the transitive
+  // closure of the given products (the listed products plus every intermediate
+  // product reachable via PRODUCT-type route RMs). Mutually exclusive with
+  // product_type_codes; product_sys_ids takes precedence when both are set.
+  repeated int64 product_sys_ids = 4;
 }
 
 message ExportBulkProductRoutingResponse {
