@@ -377,6 +377,18 @@ message BoxBobbinCost {
   string notes = 7;
   // Period-specific rate entries.
   repeated BoxBobbinCostRate rates = 8;
+  // Optional bobbin reuse count (from Oracle CMBBC_BBN_REUSE).
+  optional double bbn_reuse = 9;
+  // Optional box reuse count (from Oracle CMBBC_BOX_REUSE).
+  optional double box_reuse = 10;
+  // Optional MKT box rate in USD/box (param CAPTIVE/DELIVERY_BOX_RATE MKT).
+  optional double box_cost = 11;
+  // Optional MKT bobbin rate in USD/bobbin (param CAPTIVE/DELIVERY_BOB_RATE MKT).
+  optional double bobin_cost = 12;
+  // Optional VAL box rate in USD/box (param CAPTIVE/DELIVERY_BOX_RATE VAL).
+  optional double box_cost_val = 13;
+  // Optional VAL bobbin rate in USD/bobbin (param CAPTIVE/DELIVERY_BOB_RATE VAL).
+  optional double bobin_cost_val = 14;
   // Audit metadata.
   common.v1.AuditInfo audit = 16;
 }
@@ -399,6 +411,18 @@ message CreateBoxBobbinCostRequest {
   int32 no_of_bob = 4 [(buf.validate.field).int32.gte = 1];
   // Optional notes (max 1000 chars).
   string notes = 5 [(buf.validate.field).string.max_len = 1000];
+  // Optional bobbin reuse count (≥ 0).
+  optional double bbn_reuse = 6 [(buf.validate.field).double.gte = 0];
+  // Optional box reuse count (≥ 0).
+  optional double box_reuse = 7 [(buf.validate.field).double.gte = 0];
+  // Optional MKT box rate in USD/box (≥ 0).
+  optional double box_cost = 8 [(buf.validate.field).double.gte = 0];
+  // Optional MKT bobbin rate in USD/bobbin (≥ 0).
+  optional double bobin_cost = 9 [(buf.validate.field).double.gte = 0];
+  // Optional VAL box rate in USD/box (≥ 0).
+  optional double box_cost_val = 10 [(buf.validate.field).double.gte = 0];
+  // Optional VAL bobbin rate in USD/bobbin (≥ 0).
+  optional double bobin_cost_val = 11 [(buf.validate.field).double.gte = 0];
 }
 
 // CreateBoxBobbinCostResponse is the response for creating a Box Bobbin Cost config.
@@ -440,6 +464,18 @@ message UpdateBoxBobbinCostRequest {
   optional string notes = 5 [(buf.validate.field).string.max_len = 1000];
   // Updated active status.
   optional bool is_active = 6;
+  // Optional updated bobbin reuse count (≥ 0).
+  optional double bbn_reuse = 7 [(buf.validate.field).double.gte = 0];
+  // Optional updated box reuse count (≥ 0).
+  optional double box_reuse = 8 [(buf.validate.field).double.gte = 0];
+  // Optional updated MKT box rate in USD/box (≥ 0).
+  optional double box_cost = 9 [(buf.validate.field).double.gte = 0];
+  // Optional updated MKT bobbin rate in USD/bobbin (≥ 0).
+  optional double bobin_cost = 10 [(buf.validate.field).double.gte = 0];
+  // Optional updated VAL box rate in USD/box (≥ 0).
+  optional double box_cost_val = 11 [(buf.validate.field).double.gte = 0];
+  // Optional updated VAL bobbin rate in USD/bobbin (≥ 0).
+  optional double bobin_cost_val = 12 [(buf.validate.field).double.gte = 0];
 }
 
 // UpdateBoxBobbinCostResponse is the response for updating a Box Bobbin Cost config.
@@ -852,6 +888,10 @@ message ProductGrade {
   double std_selling_price = 12;
   // VALUE_LOSS rate.
   double sp_value = 13;
+  // Optional loss factor (param NON_STD_SPECIAL_PROD, from Oracle CMPG_LOSS).
+  optional double loss_pct = 14;
+  // Optional display sequence number (from Oracle CMPG_SEQ_NO).
+  optional int32 seq_no = 15;
   // Audit metadata.
   common.v1.AuditInfo audit = 16;
 }
@@ -895,6 +935,10 @@ message CreateProductGradeRequest {
   double std_selling_price = 10 [(buf.validate.field).double.gte = 0];
   // VALUE_LOSS rate (≥ 0).
   double sp_value = 11 [(buf.validate.field).double.gte = 0];
+  // Optional loss factor (≥ 0).
+  optional double loss_pct = 12 [(buf.validate.field).double.gte = 0];
+  // Optional display sequence number (≥ 0).
+  optional int32 seq_no = 13 [(buf.validate.field).int32.gte = 0];
 }
 
 // CreateProductGradeResponse is the response for creating a Product Grade.
@@ -957,6 +1001,10 @@ message UpdateProductGradeRequest {
   optional double std_selling_price = 11 [(buf.validate.field).double.gte = 0];
   // Optional VALUE_LOSS rate (≥ 0).
   optional double sp_value = 12 [(buf.validate.field).double.gte = 0];
+  // Optional updated loss factor (≥ 0).
+  optional double loss_pct = 13 [(buf.validate.field).double.gte = 0];
+  // Optional updated display sequence number (≥ 0).
+  optional int32 seq_no = 14 [(buf.validate.field).int32.gte = 0];
 }
 
 // UpdateProductGradeResponse is the response for updating a Product Grade.
