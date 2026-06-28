@@ -181,11 +181,11 @@ message ImportBulkProductRoutingResponse {
 // ImportBulkParamsOnlyRequest imports product_parameters + product_applicable_params
 // from a file that does NOT contain a product_master sheet. Products must already
 // exist in the database from a prior bulk import. Supports split part-sheets
-// (e.g. "product_parameters_p1" + "_p2"). Max 50 MB.
+// (e.g. "product_parameters_p1" + "_p2"). Max 200 MB.
 message ImportBulkParamsOnlyRequest {
   bytes file_content = 1 [(buf.validate.field).bytes = {
     min_len: 1
-    max_len: 52428800
+    max_len: 209715200
   }];
   string file_name = 2;
 }
