@@ -10,6 +10,13 @@ import "google/api/annotations.proto";
 // CostDataImportService — async import jobs for large costing datasets.
 // =============================================================================
 
+// ImportKind identifies which dataset a presigned upload / import job carries.
+enum ImportKind {
+  IMPORT_KIND_UNSPECIFIED = 0; // Default — invalid, must be set by the caller.
+  IMPORT_KIND_PRODUCT_ROUTING = 1; // Product master + routing dataset (xlsx or zip CSV).
+  IMPORT_KIND_PARAMS_ONLY = 2; // Params-only dataset (zip of CSV files).
+}
+
 message CostImportJob {
   int64 job_id = 1;
   string entity = 2;
@@ -228,6 +235,49 @@ message ExportBulkProductRoutingResponse {
   string status = 3;
 }
 
+// GetImportUploadURLRequest asks for a presigned PUT URL to upload an import
+// file directly to object storage (bypassing the BFF and gRPC message path).
+message GetImportUploadURLRequest {
+  ImportKind kind = 1 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  string file_name = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+// GetImportUploadURLResponse returns the presigned PUT URL plus the object key
+// to pass back to StartCostingImport once the upload completes.
+message GetImportUploadURLResponse {
+  common.v1.BaseResponse base = 1;
+  string upload_url = 2;
+  string object_key = 3;
+  int64 expires_in_seconds = 4;
+}
+
+// StartCostingImportRequest starts an async ETL import job for an already
+// uploaded object (identified by object_key from GetImportUploadURL).
+message StartCostingImportRequest {
+  ImportKind kind = 1 [(buf.validate.field).enum = {
+    not_in: [0]
+  }];
+  string object_key = 2 [(buf.validate.field).string.min_len = 1];
+  string file_name = 3;
+  string duplicate_action = 4 [(buf.validate.field).string = {
+    in: [
+      "",
+      "skip",
+      "update",
+      "error"
+    ]
+  }];
+}
+
+// StartCostingImportResponse returns the created async job ID and its status.
+message StartCostingImportResponse {
+  common.v1.BaseResponse base = 1;
+  int64 job_id = 2;
+  string status = 3;
+}
+
 service CostDataImportService {
   rpc GetCostImportJob(GetCostImportJobRequest) returns (GetCostImportJobResponse) {
     option (google.api.http) = {get: "/api/v1/finance/costing/import-jobs/{job_id}"};
@@ -293,6 +343,24 @@ service CostDataImportService {
   rpc ExportBulkProductRouting(ExportBulkProductRoutingRequest) returns (ExportBulkProductRoutingResponse) {
     option (google.api.http) = {
       post: "/api/v1/finance/costing/export/bulk_product_routing"
+      body: "*"
+    };
+  }
+
+  // GetImportUploadURL returns a presigned PUT URL for direct browser upload of
+  // an import file to object storage.
+  rpc GetImportUploadURL(GetImportUploadURLRequest) returns (GetImportUploadURLResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/costing/import/upload-url"
+      body: "*"
+    };
+  }
+
+  // StartCostingImport starts an async ETL import job for a previously uploaded
+  // object (referenced by object_key).
+  rpc StartCostingImport(StartCostingImportRequest) returns (StartCostingImportResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/costing/import/start"
       body: "*"
     };
   }
