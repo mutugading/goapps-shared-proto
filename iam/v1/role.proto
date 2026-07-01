@@ -303,6 +303,8 @@ message PermissionDetail {
   bool is_active = 8;
   int32 role_count = 9; // Number of roles with this permission
   common.v1.AuditInfo audit = 10;
+  string menu_id = 11; // Owning page/menu (empty = global/ungrouped)
+  string menu_title = 12; // Read-only, joined from mst_menu for display
 }
 
 // =============================================================================
@@ -321,7 +323,10 @@ message CreatePermissionRequest {
     min_len: 1
     max_len: 100
   }];
-  string description = 3 [(buf.validate.field).string.max_len = 500];
+  string description = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 500
+  }];
   string service_name = 4 [(buf.validate.field).string = {
     min_len: 1
     max_len: 50
@@ -340,6 +345,11 @@ message CreatePermissionRequest {
       "export",
       "import"
     ]
+  }];
+  // Owning page/menu UUID. Empty = global/ungrouped permission.
+  string menu_id = 7 [(buf.validate.field) = {
+    ignore: IGNORE_IF_ZERO_VALUE
+    string: {uuid: true}
   }];
 }
 
@@ -362,6 +372,7 @@ message UpdatePermissionRequest {
   optional string permission_name = 2 [(buf.validate.field).string.max_len = 100];
   optional string description = 3 [(buf.validate.field).string.max_len = 500];
   optional bool is_active = 4;
+  optional string menu_id = 5 [(buf.validate.field).string.uuid = true];
 }
 
 message UpdatePermissionResponse {
@@ -417,6 +428,8 @@ message ListPermissionsRequest {
       "desc"
     ]
   }];
+  // Filter by menu_id (owning page/menu)
+  string menu_id = 10;
 }
 
 message ListPermissionsResponse {
