@@ -146,7 +146,7 @@ message DeactivateCostProductMasterResponse {
 // =============================================================================
 
 message ListCostProductMastersRequest {
-  string search = 1 [(buf.validate.field).string.max_len = 200]; // matches product_code OR product_name OR erp_item_code
+  string search = 1 [(buf.validate.field).string.max_len = 200]; // matches product_code OR product_name OR erp_item_code OR oracle sys id (flex_02)
   int32 product_type_id = 2;
   string shade_code = 3 [(buf.validate.field).string.max_len = 50];
   string active_filter = 4 [(buf.validate.field).string = {
@@ -163,7 +163,15 @@ message ListCostProductMastersRequest {
       "",
       "product_code",
       "product_name",
-      "created_at"
+      "created_at",
+      "updated_at",
+      "product_type_code",
+      "shade_code",
+      "grade_code",
+      "oracle_sys_id",
+      "erp_compound_key",
+      "type_label",
+      "status"
     ]
   }];
   string sort_order = 7 [(buf.validate.field).string = {
@@ -173,6 +181,7 @@ message ListCostProductMastersRequest {
       "desc"
     ]
   }];
+  repeated int32 product_type_ids = 8; // additional type filter, unioned with product_type_id
 }
 
 message ListCostProductMastersResponse {
