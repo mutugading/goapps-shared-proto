@@ -1,0 +1,353 @@
+syntax = "proto3";
+
+package payroll.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+
+// =============================================================================
+// Payroll master data (T007): company, division, currency, employee + identity.
+//
+// Concurrency (07 Konvensi umum): every entity carries `etag` (row version).
+// Updates must send it as `if_match`; a stale value is rejected with
+// VERSION_MISMATCH (HTTP 412). PII (NPWP, KTP, bank account) is accepted as
+// plaintext on write, stored encrypted (pgcrypto) and returned masked unless the
+// caller holds payroll.master.employee.update (D-17).
+// Dates are "YYYY-MM-DD".
+// =============================================================================
+
+// ── Currency ─────────────────────────────────────────────────────────────────
+
+message Currency {
+  string code = 1;
+  int32 minor_unit = 2;
+  int32 takehome_round = 3; // IDR: -2, USD: 2.
+  string etag = 4;
+}
+
+message CreateCurrencyRequest {
+  string code = 1 [(buf.validate.field).string = {
+    len: 3
+    pattern: "^[A-Z]{3}$"
+  }];
+  int32 minor_unit = 2 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 4
+  }];
+  int32 takehome_round = 3 [(buf.validate.field).int32 = {
+    gte: -6
+    lte: 4
+  }];
+}
+
+message CreateCurrencyResponse {
+  common.v1.BaseResponse base = 1;
+  Currency data = 2;
+}
+
+message ListCurrenciesRequest {}
+
+message ListCurrenciesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Currency data = 2;
+}
+
+message UpdateCurrencyRequest {
+  string code = 1 [(buf.validate.field).string.len = 3];
+  int32 minor_unit = 2 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 4
+  }];
+  int32 takehome_round = 3 [(buf.validate.field).int32 = {
+    gte: -6
+    lte: 4
+  }];
+  string if_match = 4 [(buf.validate.field).string.min_len = 1];
+}
+
+message UpdateCurrencyResponse {
+  common.v1.BaseResponse base = 1;
+  Currency data = 2;
+}
+
+// ── Company ──────────────────────────────────────────────────────────────────
+
+message Company {
+  int32 company_id = 1;
+  string code = 2;
+  string name = 3;
+  string npwp = 4; // Withholding-agent NPWP, masked unless permitted.
+  string base_currency = 5;
+  bool active = 6;
+  string etag = 7;
+}
+
+message CreateCompanyRequest {
+  string code = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 10
+  }];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  string npwp = 3 [(buf.validate.field).string.max_len = 30];
+  string base_currency = 4 [(buf.validate.field).string.max_len = 3]; // Empty = IDR.
+}
+
+message CreateCompanyResponse {
+  common.v1.BaseResponse base = 1;
+  Company data = 2;
+}
+
+message GetCompanyRequest {
+  int32 company_id = 1 [(buf.validate.field).int32.gt = 0];
+}
+
+message GetCompanyResponse {
+  common.v1.BaseResponse base = 1;
+  Company data = 2;
+}
+
+message ListCompaniesRequest {}
+
+message ListCompaniesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Company data = 2;
+}
+
+message UpdateCompanyRequest {
+  int32 company_id = 1 [(buf.validate.field).int32.gt = 0];
+  string name = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  string npwp = 3 [(buf.validate.field).string.max_len = 30];
+  bool active = 4;
+  string if_match = 5 [(buf.validate.field).string.min_len = 1];
+}
+
+message UpdateCompanyResponse {
+  common.v1.BaseResponse base = 1;
+  Company data = 2;
+}
+
+// ── Division ─────────────────────────────────────────────────────────────────
+
+message Division {
+  int32 company_id = 1;
+  string code = 2;
+  string name = 3;
+  string etag = 4;
+}
+
+message CreateDivisionRequest {
+  int32 company_id = 1 [(buf.validate.field).int32.gt = 0];
+  string code = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 30
+  }];
+  string name = 3 [(buf.validate.field).string.max_len = 100];
+}
+
+message CreateDivisionResponse {
+  common.v1.BaseResponse base = 1;
+  Division data = 2;
+}
+
+message ListDivisionsRequest {
+  int32 company_id = 1 [(buf.validate.field).int32.gt = 0];
+}
+
+message ListDivisionsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Division data = 2;
+}
+
+message UpdateDivisionRequest {
+  int32 company_id = 1 [(buf.validate.field).int32.gt = 0];
+  string code = 2 [(buf.validate.field).string.min_len = 1];
+  string name = 3 [(buf.validate.field).string.max_len = 100];
+  string if_match = 4 [(buf.validate.field).string.min_len = 1];
+}
+
+message UpdateDivisionResponse {
+  common.v1.BaseResponse base = 1;
+  Division data = 2;
+}
+
+// ── Employee ─────────────────────────────────────────────────────────────────
+
+// Employee is the payroll master row (pyr_employee). `id` is the stable
+// internal key; `nik` may change over time (13 §3.1).
+message Employee {
+  int64 id = 1;
+  string nik = 2;
+  int32 company_id = 3;
+  string division = 4;
+  string nama = 5;
+  string email = 6;
+  string dept_id = 7;
+  string dept = 8;
+  string section_id = 9;
+  string section = 10;
+  string designation_id = 11;
+  string designation = 12;
+  string grade = 13;
+  string level = 14;
+  string tax_id = 15; // TK/TK1/K0/...
+  int32 sts_emp = 16;
+  int32 sts_payroll = 17; // 1 inactive, 2 active (legacy).
+  int32 sts_bonus = 18;
+  string date_join = 19;
+  string resign_date = 20;
+  string birth_date = 21;
+  string birth_place = 22;
+  string sex = 23;
+  string married_sts = 24;
+  string religion = 25;
+  string npwp = 26; // Masked unless permitted (D-17).
+  string ktp = 27; // Masked unless permitted.
+  string bank = 28;
+  string bank_branch = 29;
+  string bank_acnt = 30; // Masked unless permitted.
+  string bank_acnt_name = 31;
+  string orion_sub_acnt = 32;
+  string id_mesin = 33;
+  string cuti_tahunan = 34; // Decimal string.
+  string pay_currency = 35;
+  string employment_status = 36; // PERMANENT|PKWT|PROBATION|OUTSOURCE.
+  string cost_group = 37; // MGT|MB|CONTRACT.
+  int64 hris_sys_id = 38; // 0 = not linked.
+  int64 prev_employee_id = 39; // 0 = none.
+  string placement_reason = 40; // REHIRE|CONTRACT_TO_PERMANENT|TRANSFER_COMPANY.
+  string etag = 41;
+  common.v1.AuditInfo audit = 42;
+}
+
+// EmployeeInput carries the writable fields shared by create and update.
+message EmployeeInput {
+  string nama = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+  string email = 2 [(buf.validate.field).string.max_len = 255];
+  string dept_id = 3 [(buf.validate.field).string.max_len = 50];
+  string dept = 4 [(buf.validate.field).string.max_len = 50];
+  string section_id = 5 [(buf.validate.field).string.max_len = 50];
+  string section = 6 [(buf.validate.field).string.max_len = 50];
+  string designation_id = 7 [(buf.validate.field).string.max_len = 50];
+  string designation = 8 [(buf.validate.field).string.max_len = 50];
+  string grade = 9 [(buf.validate.field).string.max_len = 10];
+  string level = 10 [(buf.validate.field).string.max_len = 50];
+  string tax_id = 11 [(buf.validate.field).string.max_len = 10];
+  int32 sts_emp = 12;
+  int32 sts_payroll = 13 [(buf.validate.field).int32 = {
+    in: [
+      1,
+      2
+    ]
+  }];
+  int32 sts_bonus = 14;
+  string date_join = 15 [(buf.validate.field).string.max_len = 10];
+  string resign_date = 16 [(buf.validate.field).string.max_len = 10];
+  string birth_date = 17 [(buf.validate.field).string.max_len = 10];
+  string birth_place = 18 [(buf.validate.field).string.max_len = 100];
+  string sex = 19 [(buf.validate.field).string.max_len = 15];
+  string married_sts = 20 [(buf.validate.field).string.max_len = 15];
+  string religion = 21 [(buf.validate.field).string.max_len = 50];
+  // Plaintext PII. On update an empty value keeps the stored value.
+  string npwp = 22 [(buf.validate.field).string.max_len = 30];
+  string ktp = 23 [(buf.validate.field).string.max_len = 30];
+  string bank = 24 [(buf.validate.field).string.max_len = 50];
+  string bank_branch = 25 [(buf.validate.field).string.max_len = 50];
+  string bank_acnt = 26 [(buf.validate.field).string.max_len = 40];
+  string bank_acnt_name = 27 [(buf.validate.field).string.max_len = 50];
+  string orion_sub_acnt = 28 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 30
+  }];
+  string id_mesin = 29 [(buf.validate.field).string.max_len = 15];
+  string cuti_tahunan = 30 [(buf.validate.field).string.max_len = 10];
+  string pay_currency = 31 [(buf.validate.field).string.max_len = 3]; // Empty = IDR.
+  string employment_status = 32 [(buf.validate.field).string = {
+    in: [
+      "",
+      "PERMANENT",
+      "PKWT",
+      "PROBATION",
+      "OUTSOURCE"
+    ]
+  }];
+  string cost_group = 33 [(buf.validate.field).string = {
+    in: [
+      "",
+      "MGT",
+      "MB",
+      "CONTRACT"
+    ]
+  }];
+  int64 hris_sys_id = 34 [(buf.validate.field).int64.gte = 0];
+}
+
+message CreateEmployeeRequest {
+  int32 company_id = 1 [(buf.validate.field).int32.gt = 0];
+  string division = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 30
+  }];
+  string nik = 3 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 15
+  }];
+  EmployeeInput input = 4 [(buf.validate.field).required = true];
+}
+
+message CreateEmployeeResponse {
+  common.v1.BaseResponse base = 1;
+  Employee data = 2;
+}
+
+// GetEmployee resolves `nik` (old or new, 13 §3.1) to one employee inside the
+// caller's scope; an ambiguous NIK is rejected.
+message GetEmployeeRequest {
+  string nik = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 15
+  }];
+  int32 company_id = 2; // 0 = any company in scope.
+}
+
+message GetEmployeeResponse {
+  common.v1.BaseResponse base = 1;
+  Employee data = 2;
+}
+
+message ListEmployeesRequest {
+  int32 company_id = 1;
+  string division = 2 [(buf.validate.field).string.max_len = 30];
+  int32 sts_payroll = 3; // 0 = all.
+  string q = 4 [(buf.validate.field).string.max_len = 100]; // NIK (current/old) or name.
+  int32 limit = 5 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 200
+  }]; // 0 = 50.
+  string cursor = 6 [(buf.validate.field).string.max_len = 100];
+}
+
+message ListEmployeesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Employee data = 2;
+  string next_cursor = 3; // Empty = last page.
+}
+
+message UpdateEmployeeRequest {
+  int64 id = 1 [(buf.validate.field).int64.gt = 0];
+  EmployeeInput input = 2 [(buf.validate.field).required = true];
+  string if_match = 3 [(buf.validate.field).string.min_len = 1];
+}
+
+message UpdateEmployeeResponse {
+  common.v1.BaseResponse base = 1;
+  Employee data = 2;
+}
