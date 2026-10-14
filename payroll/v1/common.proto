@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package payroll.v1;
+
+// =============================================================================
+// Payroll shared messages.
+//
+// Money / rate / qty values are transported as decimal strings (e.g. "1500000.00"),
+// never float (spec 07 convention). Validated numerically in the application layer.
+// Response envelope (BaseResponse / PaginationResponse) is reused from
+// common/v1/common.proto — NOT redefined here.
+// =============================================================================
+
+// Money is a decimal amount carried as a string to avoid float precision loss.
+message Money {
+  // Decimal amount, e.g. "1500000.00". Must parse as a decimal; never a float literal.
+  string amount = 1;
+  // ISO 4217 currency code, e.g. "IDR", "USD". Empty means the company base currency.
+  string currency = 2;
+}
+
+// Scope identifies one company:division pair a user may access (e.g. MGT:SOLO).
+// Mirrors the `app.scopes` RLS setting in the payroll database.
+message Scope {
+  // Company code, e.g. "MGT".
+  string company = 1;
+  // Division code, e.g. "SOLO", "JAKARTA".
+  string division = 2;
+}
+
+// ErrorDetail is the structured error payload (spec 07: code, message, details).
+// Business error codes are upper snake case, e.g. PERIOD_CLOSED, DIVISION_FORBIDDEN.
+message ErrorDetail {
+  // Machine-readable error code.
+  string code = 1;
+  // Human-readable message.
+  string message = 2;
+  // Extra context, e.g. {"period": "202610"}.
+  map<string, string> details = 3;
+}

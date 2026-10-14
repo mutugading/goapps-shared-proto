@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package payroll.v1;
+
+// =============================================================================
+// PayrollService aggregates all Payroll RPCs.
+// REST is exposed via grpc-gateway under /api/v1/payroll/* (decision D-01).
+//
+// Skeleton only (T004): RPCs are added per feature task (master, run, period, ...).
+// Permission codes follow the IAM 4-segment format (D-05), see
+// goapps-backend/services/payroll/docs/permissions.md.
+// =============================================================================
+service PayrollService {}
