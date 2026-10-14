@@ -316,6 +316,8 @@ message GetEmployeeRequest {
     max_len: 15
   }];
   int32 company_id = 2; // 0 = any company in scope.
+  // Disambiguates a NIK that exists in more than one division; empty = any division in scope.
+  string division = 3 [(buf.validate.field).string.max_len = 30];
 }
 
 message GetEmployeeResponse {
