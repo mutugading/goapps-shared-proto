@@ -93,6 +93,8 @@ message Dashboard {
   common.v1.AuditInfo audit = 24;
   bool is_featured = 25;
   int32 feature_order = 26;
+  // Kalender periode: CALENDAR (bulan kalender) atau PAYROLL_26_25 (periode payroll 26-25). HD-06.
+  string period_calendar = 27;
 }
 
 message DataSource {
@@ -239,6 +241,8 @@ message CreateDashboardRequest {
       "THIS_MONTH",
       "THIS_WEEK",
       "LAST_WEEK",
+      "LAST_MONTH",
+      "YESTERDAY",
       "ALL",
       "CUSTOM"
     ]
@@ -267,6 +271,14 @@ message CreateDashboardRequest {
   string group_id = 18 [(buf.validate.field).string.uuid = true];
   repeated string allowed_role_codes = 19;
   bool is_active = 20;
+  // Kosong = CALENDAR.
+  string period_calendar = 21 [(buf.validate.field).string = {
+    in: [
+      "",
+      "CALENDAR",
+      "PAYROLL_26_25"
+    ]
+  }];
 }
 message CreateDashboardResponse {
   common.v1.BaseResponse base = 1;
@@ -345,6 +357,8 @@ message UpdateDashboardRequest {
       "THIS_MONTH",
       "THIS_WEEK",
       "LAST_WEEK",
+      "LAST_MONTH",
+      "YESTERDAY",
       "ALL",
       "CUSTOM"
     ]
@@ -372,6 +386,12 @@ message UpdateDashboardRequest {
   optional bool is_active = 19;
   optional bool is_featured = 25;
   optional int32 feature_order = 26;
+  optional string period_calendar = 27 [(buf.validate.field).string = {
+    in: [
+      "CALENDAR",
+      "PAYROLL_26_25"
+    ]
+  }];
 }
 message UpdateDashboardResponse {
   common.v1.BaseResponse base = 1;
@@ -448,6 +468,8 @@ message GetDashboardDataRequest {
       "THIS_MONTH",
       "THIS_WEEK",
       "LAST_WEEK",
+      "LAST_MONTH",
+      "YESTERDAY",
       "ALL",
       "CUSTOM"
     ]
