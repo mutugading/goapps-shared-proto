@@ -3,6 +3,7 @@ syntax = "proto3";
 package payroll.v1;
 
 import "google/api/annotations.proto";
+import "payroll/v1/component.proto";
 import "payroll/v1/master.proto";
 
 // =============================================================================
@@ -84,6 +85,42 @@ service PayrollService {
   rpc UpdateEmployee(UpdateEmployeeRequest) returns (UpdateEmployeeResponse) {
     option (google.api.http) = {
       put: "/api/v1/payroll/employees/id/{id}"
+      body: "*"
+    };
+  }
+
+  // ── Master: Component (sysid) + template per level (T008) ──────────────────
+  rpc CreateComponent(CreateComponentRequest) returns (CreateComponentResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/components"
+      body: "*"
+    };
+  }
+  rpc GetComponent(GetComponentRequest) returns (GetComponentResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/components/{sysid}"};
+  }
+  rpc ListComponents(ListComponentsRequest) returns (ListComponentsResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/components"};
+  }
+  rpc UpdateComponent(UpdateComponentRequest) returns (UpdateComponentResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/payroll/components/{sysid}"
+      body: "*"
+    };
+  }
+  // No DELETE: a sysid is never reused; unused components are retired.
+  rpc RetireComponent(RetireComponentRequest) returns (RetireComponentResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/components/{sysid}:retire"
+      body: "*"
+    };
+  }
+  rpc GetComponentTemplate(GetComponentTemplateRequest) returns (GetComponentTemplateResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/component-templates/{level}"};
+  }
+  rpc PutComponentTemplate(PutComponentTemplateRequest) returns (PutComponentTemplateResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/payroll/component-templates/{level}"
       body: "*"
     };
   }
