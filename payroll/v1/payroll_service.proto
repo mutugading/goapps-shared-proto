@@ -4,6 +4,7 @@ package payroll.v1;
 
 import "google/api/annotations.proto";
 import "payroll/v1/component.proto";
+import "payroll/v1/employee_component.proto";
 import "payroll/v1/master.proto";
 
 // =============================================================================
@@ -121,6 +122,28 @@ service PayrollService {
   rpc PutComponentTemplate(PutComponentTemplateRequest) returns (PutComponentTemplateResponse) {
     option (google.api.http) = {
       put: "/api/v1/payroll/component-templates/{level}"
+      body: "*"
+    };
+  }
+  // ── Employee components + level-change (T008b) ─────────────────────────────
+  rpc GetEmployeeComponents(GetEmployeeComponentsRequest) returns (GetEmployeeComponentsResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/employees/{nik}/components"};
+  }
+  rpc PutEmployeeComponents(PutEmployeeComponentsRequest) returns (PutEmployeeComponentsResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/payroll/employees/{nik}/components"
+      body: "*"
+    };
+  }
+  rpc PreviewLevelChange(PreviewLevelChangeRequest) returns (PreviewLevelChangeResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/employees/{nik}/level-change:preview"
+      body: "*"
+    };
+  }
+  rpc ApplyLevelChange(ApplyLevelChangeRequest) returns (ApplyLevelChangeResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/employees/{nik}/level-change"
       body: "*"
     };
   }
