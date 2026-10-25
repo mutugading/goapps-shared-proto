@@ -218,7 +218,7 @@ message Employee {
   string pay_currency = 35;
   string employment_status = 36; // PERMANENT|PKWT|PROBATION|OUTSOURCE.
   string cost_group = 37; // MGT|MB|CONTRACT.
-  int64 hris_sys_id = 38; // 0 = not linked.
+  string hris_sys_id = 38; // HRIS code (e.g. MGTSLO123); empty = not linked.
   int64 prev_employee_id = 39; // 0 = none.
   string placement_reason = 40; // REHIRE|CONTRACT_TO_PERMANENT|TRANSFER_COMPANY.
   string etag = 41;
@@ -287,7 +287,7 @@ message EmployeeInput {
       "CONTRACT"
     ]
   }];
-  int64 hris_sys_id = 34 [(buf.validate.field).int64.gte = 0];
+  string hris_sys_id = 34 [(buf.validate.field).string.max_len = 30];
 }
 
 message CreateEmployeeRequest {
