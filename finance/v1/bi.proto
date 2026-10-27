@@ -562,6 +562,20 @@ message ListJobsResponse {
   repeated BiJob data = 2;
 }
 
+// EtlJobStatus is the operational status of one ETL_HR_* job (HD-27). No raw error text.
+message EtlJobStatus {
+  string job_name = 1;
+  google.protobuf.Timestamp last_run_at = 2;
+  string last_status = 3;
+  google.protobuf.Timestamp last_success_at = 4;
+}
+
+message GetEtlStatusRequest {}
+message GetEtlStatusResponse {
+  common.v1.BaseResponse base = 1;
+  repeated EtlJobStatus data = 2;
+}
+
 message ListJobLogsRequest {
   string job_id = 1 [(buf.validate.field).string.uuid = true];
   int32 page = 2 [(buf.validate.field).int32.gte = 1];
@@ -862,6 +876,10 @@ service BiJobService {
   // ListJobs returns ETL job registry entries.
   rpc ListJobs(ListJobsRequest) returns (ListJobsResponse) {
     option (google.api.http) = {get: "/api/v1/finance/bi/jobs"};
+  }
+  // GetEtlStatus returns last-run status of ETL_HR_* jobs only (HD-27, finance.bi.etlstatus.view).
+  rpc GetEtlStatus(GetEtlStatusRequest) returns (GetEtlStatusResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/bi/etl-status"};
   }
   // ListJobLogs returns logs for a specific job.
   rpc ListJobLogs(ListJobLogsRequest) returns (ListJobLogsResponse) {
