@@ -2,7 +2,7 @@
 name: 🐛 Bug Report
 about: Report issues with proto definitions or code generation
 title: '[BUG] '
-labels: 'type: bug, status: needs-triage'
+labels: 'type:bug, needs-triage'
 assignees: ''
 ---
 

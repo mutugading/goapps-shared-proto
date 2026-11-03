@@ -2,7 +2,7 @@
 name: ✨ New Proto Service
 about: Request a new gRPC service definition
 title: '[SERVICE] '
-labels: 'type: feature, scope: new-service'
+labels: 'type:feature, needs-triage'
 assignees: ''
 ---
 
