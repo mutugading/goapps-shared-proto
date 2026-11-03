@@ -2,7 +2,7 @@
 name: 🔄 Proto Change
 about: Request modification to existing proto definitions
 title: '[CHANGE] '
-labels: 'type: change, status: needs-review'
+labels: 'type:improvement, needs-triage'
 assignees: ''
 ---
 
