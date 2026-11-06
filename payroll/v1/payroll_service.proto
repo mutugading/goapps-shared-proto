@@ -6,6 +6,7 @@ import "google/api/annotations.proto";
 import "payroll/v1/component.proto";
 import "payroll/v1/employee_component.proto";
 import "payroll/v1/master.proto";
+import "payroll/v1/run.proto";
 
 // =============================================================================
 // PayrollService aggregates all Payroll RPCs.
@@ -144,6 +145,44 @@ service PayrollService {
   rpc ApplyLevelChange(ApplyLevelChangeRequest) returns (ApplyLevelChangeResponse) {
     option (google.api.http) = {
       post: "/api/v1/payroll/employees/{nik}/level-change"
+      body: "*"
+    };
+  }
+
+  // ── Run & period (T022a, D-51) ─────────────────────────────────────────────
+  rpc CreateRun(CreateRunRequest) returns (CreateRunResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/runs"
+      body: "*"
+    };
+  }
+  rpc GetRun(GetRunRequest) returns (GetRunResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/runs/{run_id}"};
+  }
+  rpc ListRuns(ListRunsRequest) returns (ListRunsResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/runs"};
+  }
+  rpc ListRunLines(ListRunLinesRequest) returns (ListRunLinesResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/runs/{run_id}/lines"};
+  }
+  rpc ListPeriods(ListPeriodsRequest) returns (ListPeriodsResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/periods"};
+  }
+  rpc ApprovePeriod(ApprovePeriodRequest) returns (ApprovePeriodResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/periods/{yymm}/{division}:approve"
+      body: "*"
+    };
+  }
+  rpc ClosePeriod(ClosePeriodRequest) returns (ClosePeriodResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/periods/{yymm}/{division}:close"
+      body: "*"
+    };
+  }
+  rpc ReopenPeriod(ReopenPeriodRequest) returns (ReopenPeriodResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/periods/{yymm}/{division}:reopen"
       body: "*"
     };
   }
