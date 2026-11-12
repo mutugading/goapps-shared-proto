@@ -2148,6 +2148,9 @@ message MBSpin {
   string superseded_at = 34;
   // Code of the superseding spin (convenience for the "Superseded -> <code>" badge).
   string superseded_by_spin_code = 35;
+  // True when the FG link follows the recipe and cannot be edited on the spin
+  // (link source RECIPE, or root spin of a recipe that has an FG). Read-only.
+  bool fg_follows_recipe = 36;
 }
 
 // CreateMBSpinRequest is the request for creating an MB Spin record.
