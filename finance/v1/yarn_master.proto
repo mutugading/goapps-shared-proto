@@ -2140,7 +2140,7 @@ message MBSpin {
   string fg_product_code = 30;
   // FG product name (read-only, denormalized).
   string fg_product_name = 31;
-  // How the FG link was derived (e.g. FG_MATCH | SHADE_ONLY | MANUAL; empty = none).
+  // How the FG link was derived (RECIPE | DUPLICATE | MANUAL | BACKFILL; empty = none).
   string fg_link_source = 32;
   // UUID of the spin that superseded this one (empty = not superseded).
   string superseded_by_spin_id = 33;
@@ -2342,8 +2342,7 @@ message ListMBSpinsRequest {
   int64 fg_product_id = 8 [(buf.validate.field).int64.gte = 0];
   // Search by FG product code / name / orion item code (max 200 chars).
   string fg_search = 9 [(buf.validate.field).string.max_len = 200];
-  // Include superseded spins. NOTE: default behaviour is unchanged (superseded spins are
-  // still listed as before); this flag is reserved for explicit callers.
+  // Include superseded spins. Default false = superseded spins are hidden; true = list them too.
   bool include_superseded = 10;
 }
 
@@ -2457,7 +2456,7 @@ message DuplicateMBSpinRequest {
   // zero. Absent means the source value is copied as-is. Same stricter-than-
   // Create/Update reasoning as mbs_denier above.
   optional int32 mbs_filament = 5 [(buf.validate.field).int32.gt = 0];
-  // FG product link for the clone (cost_product_master id). 0 = not set / inherit.
+  // FG product link for the clone (cost_product_master id). 0 = no FG link (the source FG is never copied; it would collide on shade+FG).
   int64 fg_product_id = 6 [(buf.validate.field).int64.gte = 0];
 }
 
