@@ -74,6 +74,8 @@ message CreateCostProductMasterRequest {
   string erp_ms_batch_item = 11 [(buf.validate.field).string.max_len = 12];
   string erp_item_type = 12 [(buf.validate.field).string.max_len = 20];
   string erp_prd_per_day = 13 [(buf.validate.field).string.pattern = "^([0-9]{1,12}(\\.[0-9]{1,6})?)?$"]; // decimal string
+  // ERP item code (optional; used for inline minimal POY creation). Empty = unset.
+  string erp_item_code = 14 [(buf.validate.field).string.max_len = 50];
 }
 
 message CreateCostProductMasterResponse {
@@ -467,4 +469,166 @@ service CostProductMasterService {
   rpc DeleteRMDenierOverride(DeleteRMDenierOverrideRequest) returns (DeleteRMDenierOverrideResponse) {
     option (google.api.http) = {delete: "/api/v1/finance/cost-product-master/{product_sys_id}/rm-denier-overrides"};
   }
+
+  // GetCostProductMbLink resolves the MB spin link for a product (FG_MATCH | SHADE_ONLY | SUPERBA | NONE).
+  rpc GetCostProductMbLink(GetCostProductMbLinkRequest) returns (GetCostProductMbLinkResponse) {
+    option (google.api.http) = {get: "/api/v1/finance/cost-product-master/{product_sys_id}/mb-link"};
+  }
+
+  // RelinkCostProductMb forces MB autofill (re-link) for a product.
+  rpc RelinkCostProductMb(RelinkCostProductMbRequest) returns (RelinkCostProductMbResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-master/{product_sys_id}/mb-relink"
+      body: "*"
+    };
+  }
+
+  // PreviewProductEtlFromOracle previews products to import from Oracle legacy.
+  rpc PreviewProductEtlFromOracle(PreviewProductEtlFromOracleRequest) returns (PreviewProductEtlFromOracleResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-master/etl/preview"
+      body: "*"
+    };
+  }
+
+  // ApplyProductEtlFromOracle inserts the selected rows of a previous preview run.
+  rpc ApplyProductEtlFromOracle(ApplyProductEtlFromOracleRequest) returns (ApplyProductEtlFromOracleResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-product-master/etl/apply"
+      body: "*"
+    };
+  }
+}
+
+// =============================================================================
+// MB link + Oracle product ETL (mb-spin-fg-poy-link).
+// =============================================================================
+
+// CostProductMbLink describes how a product resolves to an MB spin.
+message CostProductMbLink {
+  // FG_MATCH | SHADE_ONLY | SUPERBA | NONE.
+  string link_source = 1;
+  // Resolved spin UUID.
+  string spin_id = 2;
+  // Resolved spin code.
+  string spin_code = 3;
+  // Resolved spin shade code.
+  string spin_shade_code = 4;
+  // FG product id (0 = none).
+  int64 fg_product_id = 5;
+  // FG product code.
+  string fg_product_code = 6;
+  // Candidate POY product ids when ambiguous.
+  repeated int64 candidate_poy_product_ids = 7;
+  // Human-readable reason.
+  string reason = 8;
+  // Current MB_SP_CODE param text value.
+  string current_param_value = 9;
+  // True when current_param_value matches the resolved spin.
+  bool param_matches = 10;
+}
+
+message GetCostProductMbLinkRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+
+message GetCostProductMbLinkResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductMbLink data = 2;
+}
+
+message RelinkCostProductMbRequest {
+  int64 product_sys_id = 1 [(buf.validate.field).int64.gte = 1];
+}
+
+message RelinkCostProductMbResponse {
+  common.v1.BaseResponse base = 1;
+  CostProductMbLink data = 2;
+}
+
+message PreviewProductEtlFromOracleRequest {
+  // Start date YYYY-MM-DD.
+  string from_date = 1 [(buf.validate.field).string.pattern = "^\\d{4}-\\d{2}-\\d{2}$"];
+  // Free-text search (max 200 chars).
+  string search = 2 [(buf.validate.field).string.max_len = 200];
+  // Include rows that already exist.
+  bool include_existing = 3;
+}
+
+// ProductEtlRow is one preview row.
+message ProductEtlRow {
+  // "<item>|<shade>".
+  string row_key = 1;
+  string merge_item_orion = 2;
+  string item_name = 3;
+  string shade_code = 4;
+  string shade_name = 5;
+  string type_code = 6;
+  // EXISTS | EXISTS_MULTI | NEW_SHADE | NEW_ITEM | POSSIBLE_DUPLICATE | INVALID_TYPE.
+  string status = 7;
+  // Whether the row can be applied.
+  bool selectable = 8;
+  repeated int64 matched_product_ids = 9;
+  string denier = 10;
+  string filament = 11;
+  string note = 12;
+}
+
+// ProductEtlCounts holds per-status counts.
+message ProductEtlCounts {
+  int32 exists = 1;
+  int32 exists_multi = 2;
+  int32 new_shade = 3;
+  int32 new_item = 4;
+  int32 possible_duplicate = 5;
+  int32 invalid_type = 6;
+  int32 total = 7;
+}
+
+message ProductEtlPreview {
+  // Run token (UUID) to pass to apply.
+  string run_id = 1;
+  string from_date = 2;
+  repeated ProductEtlRow rows = 3;
+  ProductEtlCounts counts = 4;
+  // Max rows accepted per apply call.
+  int32 apply_limit = 5;
+}
+
+message PreviewProductEtlFromOracleResponse {
+  common.v1.BaseResponse base = 1;
+  ProductEtlPreview data = 2;
+}
+
+message ApplyProductEtlFromOracleRequest {
+  // Run token returned by preview.
+  string preview_run_id = 1 [(buf.validate.field).string.uuid = true];
+  // Selected row keys.
+  repeated string row_keys = 2 [(buf.validate.field).repeated = {
+    min_items: 1
+    max_items: 500
+  }];
+}
+
+// ProductEtlApplyRow is the per-row apply result.
+message ProductEtlApplyRow {
+  string row_key = 1;
+  // INSERTED | SKIPPED | FAILED.
+  string result = 2;
+  int64 product_sys_id = 3;
+  string product_code = 4;
+  string message = 5;
+}
+
+message ProductEtlApplyResult {
+  string run_id = 1;
+  int32 inserted = 2;
+  int32 skipped = 3;
+  int32 failed = 4;
+  repeated ProductEtlApplyRow rows = 5;
+}
+
+message ApplyProductEtlFromOracleResponse {
+  common.v1.BaseResponse base = 1;
+  ProductEtlApplyResult data = 2;
 }
