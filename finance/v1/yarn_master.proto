@@ -2258,6 +2258,11 @@ message UpdateMBSpinRequest {
   optional bool mbs_ldr_lock_actual = 18;
   // Optional VS reference number. Absent = leave unchanged.
   optional string mbs_vs_number = 19 [(buf.validate.field).string.max_len = 50];
+
+  // Optional FG (POY) product link (mb-spin-fg-poy-link P8). Absent = leave unchanged,
+  // 0 = clear the link, >0 = link to this active POY product (link source MANUAL).
+  // Rejected for spins whose FG comes from their recipe (link source RECIPE) and for superseded/inactive spins.
+  optional int64 fg_product_id = 20 [(buf.validate.field).int64.gte = 0];
 }
 
 // UpdateMBSpinResponse is the response for updating an MB Spin record.
