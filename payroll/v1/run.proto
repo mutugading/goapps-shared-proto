@@ -8,8 +8,8 @@ import "common/v1/common.proto";
 // =============================================================================
 // Payroll run & period (spec 07§4–5, decision D-51).
 //
-// Phase 1 scope: CreateRun is always synchronous (dry or commit); no diff,
-// cancel, SSE or 202 responses (those stay in B-API-RUN phase 2).
+// Phase 1 scope: CreateRun is always synchronous (dry or commit); no cancel,
+// SSE or 202 responses (those stay in B-API-RUN phase 2). GetRunDiff: T030c.
 //
 // All nominal fields are decimal strings (never float). Without permission
 // payroll.salary.amount.view every nominal field is the literal "***", which is
@@ -166,6 +166,109 @@ message ListRunLinesRequest {
 message ListRunLinesResponse {
   common.v1.BaseResponse base = 1;
   repeated RunLine data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// ── Run diff (07§4, T030c) ───────────────────────────────────────────────────
+
+message GetRunDiffRequest {
+  int64 run_id = 1 [(buf.validate.field).int64.gt = 0];
+  // Empty or active = the ACTIVE run of the period | legacy = the LEGACY run of the
+  // period (recon, D-41) | run:<id> = another run of the same period.
+  string against = 2 [(buf.validate.field).string = {pattern: "^(|active|legacy|run:[1-9][0-9]{0,18})$"}];
+  string nik = 3 [(buf.validate.field).string.max_len = 15]; // Empty = all.
+  // Line category filter (e.g. FORMULA); empty = every non-MATCH line.
+  string category = 4 [(buf.validate.field).string = {
+    max_len: 20
+    pattern: "^[A-Z_]*$"
+  }];
+  int32 page = 5 [(buf.validate.field).int32.gte = 0]; // 0 = 1.
+  int32 page_size = 6 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 500
+  }]; // 0 = 100.
+}
+
+// RunDiffLine is one non-MATCH (nik, component) line; delta = run - against.
+message RunDiffLine {
+  string nik = 1;
+  string component = 2; // T001 / P032
+  // Nominal: decimal string ("" = no line / NULL), or "***" when masked.
+  string legacy_amount = 3;
+  // Nominal: decimal string ("" = no line / NULL), or "***" when masked.
+  string target_amount = 4;
+  // Nominal: decimal string, or "***" when masked.
+  string delta_amount = 5;
+  // ROUNDING | FORMULA | INPUT_ATT | INPUT_MASTER | ONLY_LEGACY | ONLY_TARGET |
+  // MASTER_DRIFT | KNOWN_DEFECT.
+  string category = 6;
+}
+
+// RunDiffHead is a NIK whose header totals differ or exist on one side only.
+message RunDiffHead {
+  string nik = 1;
+  bool has_legacy = 2;
+  bool has_target = 3;
+  // Nominals: decimal string ("" when the side is missing), or "***" when masked
+  // (a missing side is "***" too).
+  string legacy_total_tunjangan = 4;
+  string legacy_total_potongan = 5;
+  string legacy_take_home = 6;
+  string target_total_tunjangan = 7;
+  string target_total_potongan = 8;
+  string target_take_home = 9;
+  // D-47/D-50 exclusion reason (against=legacy only); empty = counted.
+  string excluded = 10;
+}
+
+// RunDiffExclusion aggregates the NIKs left out of parity (D-47/D-50).
+message RunDiffExclusion {
+  string reason = 1;
+  int32 nik = 2;
+  int32 lines = 3;
+  int32 other_lines = 4;
+  int32 head_mismatch = 5;
+  // Nominals: decimal string, or "***" when masked.
+  string take_home_legacy = 6;
+  string take_home_target = 7;
+  string take_home_delta = 8;
+}
+
+message RunDiffSummary {
+  // Line count per category (MATCH included).
+  map<string, int32> categories = 1;
+  int32 nik_legacy = 2;
+  int32 nik_target = 3;
+  int32 head_mismatch = 4;
+  // Nominals: decimal string, or "***" when masked.
+  string take_home_legacy = 5;
+  string take_home_target = 6;
+  string take_home_delta = 7;
+  // Parity verdict of rule set v1 (09§4, D-49).
+  bool parity = 8;
+  repeated RunDiffExclusion excluded = 9;
+}
+
+message RunDiff {
+  int64 run_id = 1;
+  string against = 2;
+  // Run id of the against side (the LEGACY run for against=legacy).
+  int64 against_run_id = 3;
+  int32 yymm = 4;
+  string division = 5;
+  RunDiffSummary summary = 6;
+  // Lines of the requested page (filters applied).
+  repeated RunDiffLine lines = 7;
+  // Every header mismatch (nik filter applied).
+  repeated RunDiffHead heads = 8;
+  // Code and NIK stay visible; the message is masked like Run.warnings.
+  repeated string warnings = 9;
+}
+
+message GetRunDiffResponse {
+  common.v1.BaseResponse base = 1;
+  RunDiff data = 2;
+  // Pagination of data.lines.
   common.v1.PaginationResponse pagination = 3;
 }
 
