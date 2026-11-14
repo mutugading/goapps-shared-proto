@@ -1,0 +1,189 @@
+syntax = "proto3";
+
+package payroll.v1;
+
+import "google/api/annotations.proto";
+import "payroll/v1/component.proto";
+import "payroll/v1/employee_component.proto";
+import "payroll/v1/master.proto";
+import "payroll/v1/run.proto";
+
+// =============================================================================
+// PayrollService aggregates all Payroll RPCs.
+// REST is exposed via grpc-gateway under /api/v1/payroll/* (decision D-01).
+//
+// RPCs are added per feature task (master T007, run, period, ...).
+// Permission codes follow the IAM 4-segment format (D-05), see
+// goapps-backend/services/payroll/docs/permissions.md.
+// =============================================================================
+service PayrollService {
+  // ── Master: Currency ───────────────────────────────────────────────────────
+  rpc CreateCurrency(CreateCurrencyRequest) returns (CreateCurrencyResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/currencies"
+      body: "*"
+    };
+  }
+  rpc ListCurrencies(ListCurrenciesRequest) returns (ListCurrenciesResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/currencies"};
+  }
+  rpc UpdateCurrency(UpdateCurrencyRequest) returns (UpdateCurrencyResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/payroll/currencies/{code}"
+      body: "*"
+    };
+  }
+
+  // ── Master: Company ────────────────────────────────────────────────────────
+  rpc CreateCompany(CreateCompanyRequest) returns (CreateCompanyResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/companies"
+      body: "*"
+    };
+  }
+  rpc GetCompany(GetCompanyRequest) returns (GetCompanyResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/companies/{company_id}"};
+  }
+  rpc ListCompanies(ListCompaniesRequest) returns (ListCompaniesResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/companies"};
+  }
+  rpc UpdateCompany(UpdateCompanyRequest) returns (UpdateCompanyResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/payroll/companies/{company_id}"
+      body: "*"
+    };
+  }
+
+  // ── Master: Division ───────────────────────────────────────────────────────
+  rpc CreateDivision(CreateDivisionRequest) returns (CreateDivisionResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/companies/{company_id}/divisions"
+      body: "*"
+    };
+  }
+  rpc ListDivisions(ListDivisionsRequest) returns (ListDivisionsResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/companies/{company_id}/divisions"};
+  }
+  rpc UpdateDivision(UpdateDivisionRequest) returns (UpdateDivisionResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/payroll/companies/{company_id}/divisions/{code}"
+      body: "*"
+    };
+  }
+
+  // ── Master: Employee ───────────────────────────────────────────────────────
+  rpc CreateEmployee(CreateEmployeeRequest) returns (CreateEmployeeResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/employees"
+      body: "*"
+    };
+  }
+  rpc GetEmployee(GetEmployeeRequest) returns (GetEmployeeResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/employees/{nik}"};
+  }
+  rpc ListEmployees(ListEmployeesRequest) returns (ListEmployeesResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/employees"};
+  }
+  rpc UpdateEmployee(UpdateEmployeeRequest) returns (UpdateEmployeeResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/payroll/employees/id/{id}"
+      body: "*"
+    };
+  }
+
+  // ── Master: Component (sysid) + template per level (T008) ──────────────────
+  rpc CreateComponent(CreateComponentRequest) returns (CreateComponentResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/components"
+      body: "*"
+    };
+  }
+  rpc GetComponent(GetComponentRequest) returns (GetComponentResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/components/{sysid}"};
+  }
+  rpc ListComponents(ListComponentsRequest) returns (ListComponentsResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/components"};
+  }
+  rpc UpdateComponent(UpdateComponentRequest) returns (UpdateComponentResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/payroll/components/{sysid}"
+      body: "*"
+    };
+  }
+  // No DELETE: a sysid is never reused; unused components are retired.
+  rpc RetireComponent(RetireComponentRequest) returns (RetireComponentResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/components/{sysid}:retire"
+      body: "*"
+    };
+  }
+  rpc GetComponentTemplate(GetComponentTemplateRequest) returns (GetComponentTemplateResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/component-templates/{level}"};
+  }
+  rpc PutComponentTemplate(PutComponentTemplateRequest) returns (PutComponentTemplateResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/payroll/component-templates/{level}"
+      body: "*"
+    };
+  }
+  // ── Employee components + level-change (T008b) ─────────────────────────────
+  rpc GetEmployeeComponents(GetEmployeeComponentsRequest) returns (GetEmployeeComponentsResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/employees/{nik}/components"};
+  }
+  rpc PutEmployeeComponents(PutEmployeeComponentsRequest) returns (PutEmployeeComponentsResponse) {
+    option (google.api.http) = {
+      put: "/api/v1/payroll/employees/{nik}/components"
+      body: "*"
+    };
+  }
+  rpc PreviewLevelChange(PreviewLevelChangeRequest) returns (PreviewLevelChangeResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/employees/{nik}/level-change:preview"
+      body: "*"
+    };
+  }
+  rpc ApplyLevelChange(ApplyLevelChangeRequest) returns (ApplyLevelChangeResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/employees/{nik}/level-change"
+      body: "*"
+    };
+  }
+
+  // ── Run & period (T022a, D-51) ─────────────────────────────────────────────
+  rpc CreateRun(CreateRunRequest) returns (CreateRunResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/runs"
+      body: "*"
+    };
+  }
+  rpc GetRun(GetRunRequest) returns (GetRunResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/runs/{run_id}"};
+  }
+  rpc ListRuns(ListRunsRequest) returns (ListRunsResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/runs"};
+  }
+  rpc ListRunLines(ListRunLinesRequest) returns (ListRunLinesResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/runs/{run_id}/lines"};
+  }
+  rpc ListPeriods(ListPeriodsRequest) returns (ListPeriodsResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/periods"};
+  }
+  rpc ApprovePeriod(ApprovePeriodRequest) returns (ApprovePeriodResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/periods/{yymm}/{division}:approve"
+      body: "*"
+    };
+  }
+  rpc ClosePeriod(ClosePeriodRequest) returns (ClosePeriodResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/periods/{yymm}/{division}:close"
+      body: "*"
+    };
+  }
+  rpc ReopenPeriod(ReopenPeriodRequest) returns (ReopenPeriodResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/periods/{yymm}/{division}:reopen"
+      body: "*"
+    };
+  }
+}

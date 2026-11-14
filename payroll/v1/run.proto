@@ -1,0 +1,234 @@
+syntax = "proto3";
+
+package payroll.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+
+// =============================================================================
+// Payroll run & period (spec 07§4–5, decision D-51).
+//
+// Phase 1 scope: CreateRun is always synchronous (dry or commit); no diff,
+// cancel, SSE or 202 responses (those stay in B-API-RUN phase 2).
+//
+// All nominal fields are decimal strings (never float). Without permission
+// payroll.salary.amount.view every nominal field is the literal "***", which is
+// why they are strings and not Money (D-51, invariant I23).
+// =============================================================================
+
+// RunMode selects dry-run (nothing persisted as ACTIVE) or commit.
+enum RunMode {
+  RUN_MODE_UNSPECIFIED = 0;
+  RUN_MODE_DRY = 1;
+  RUN_MODE_COMMIT = 2;
+}
+
+// Run is the summary of one payroll run (≈ pyr_run).
+message Run {
+  int64 run_id = 1;
+  int32 yymm = 2;
+  string division = 3;
+  string process_date = 4; // YYYY-MM-DD
+  // ACTIVE | SUPERSEDED | FAILED | DRY.
+  string status = 5;
+  int32 employee_count = 6;
+  int32 line_count = 7;
+  // Nominal: decimal string, or "***" when masked.
+  string total_tunjangan = 8;
+  // Nominal: decimal string, or "***" when masked.
+  string total_potongan = 9;
+  int32 rule_set_id = 10;
+  int64 snapshot_id = 11;
+  repeated string nik_filter = 12;
+  // Warnings stay visible when nominals are masked.
+  repeated string warnings = 13;
+  string started_by = 14;
+  string started_at = 15; // RFC3339
+  string finished_at = 16; // RFC3339, empty while running.
+  int64 duration_ms = 17;
+}
+
+// RunLine is one component line of one employee (≈ pyr_salary_detail).
+message RunLine {
+  string nik = 1;
+  // T = tunjangan, P = potongan.
+  string comp_type = 2;
+  int32 comp_id = 3;
+  string description = 4;
+  // Nominal: decimal string, or "***" when masked.
+  string amount = 5;
+  // Nominal: decimal string, or "***" when masked.
+  string base = 6;
+  // Quantity stays visible when masked.
+  string qty = 7;
+  // Nominal: decimal string, or "***" when masked.
+  string rate = 8;
+  string formula = 9;
+  string remarks = 10;
+}
+
+// EmployeeTotal is the per-employee total of a run (≈ pyr_salary_head).
+message RunEmployeeTotal {
+  string nik = 1;
+  string name = 2;
+  // Nominal: decimal string, or "***" when masked.
+  string total_tunjangan = 3;
+  // Nominal: decimal string, or "***" when masked.
+  string total_potongan = 4;
+  // Nominal: decimal string, or "***" when masked.
+  string take_home = 5;
+}
+
+// Period is the payroll period status per (yymm, division) (≈ pyr_period).
+message Period {
+  int32 yymm = 1;
+  string division = 2;
+  string date_from = 3; // YYYY-MM-DD
+  string date_to = 4; // YYYY-MM-DD
+  // OPEN | APPROVED | CLOSED.
+  string status = 5;
+  int64 active_run_id = 6; // 0 = none.
+  string approved_by = 7;
+  string approved_at = 8;
+  string closed_by = 9;
+  string closed_at = 10;
+  string reopen_reason = 11;
+}
+
+// ── Run ──────────────────────────────────────────────────────────────────────
+
+message CreateRunRequest {
+  int32 yymm = 1 [(buf.validate.field).int32 = {
+    gte: 190001
+    lte: 999912
+  }];
+  string division = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 30
+  }];
+  int32 company_id = 3 [(buf.validate.field).int32.gt = 0];
+  string process_date = 4 [(buf.validate.field).string.pattern = "^\\d{4}-\\d{2}-\\d{2}$"]; // YYYY-MM-DD
+  RunMode mode = 5 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // Optional: limit the run to these NIKs (single-employee reprocess).
+  repeated string nik = 6 [(buf.validate.field).repeated = {
+    max_items: 500
+    items: {
+      string: {
+        min_len: 1
+        max_len: 15
+      }
+    }
+  }];
+}
+
+message CreateRunResponse {
+  common.v1.BaseResponse base = 1;
+  Run data = 2;
+  // Dry mode: per-employee totals. Commit mode: empty (use ListRunLines).
+  repeated RunEmployeeTotal employees = 3;
+}
+
+message GetRunRequest {
+  int64 run_id = 1 [(buf.validate.field).int64.gt = 0];
+}
+
+message GetRunResponse {
+  common.v1.BaseResponse base = 1;
+  Run data = 2;
+}
+
+message ListRunsRequest {
+  int32 yymm = 1 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 999912
+  }]; // 0 = all.
+  string division = 2 [(buf.validate.field).string.max_len = 30]; // Empty = all in scope.
+}
+
+message ListRunsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Run data = 2;
+}
+
+message ListRunLinesRequest {
+  int64 run_id = 1 [(buf.validate.field).int64.gt = 0];
+  string nik = 2 [(buf.validate.field).string.max_len = 15]; // Empty = all.
+  int32 page = 3 [(buf.validate.field).int32.gte = 0]; // 0 = 1.
+  int32 page_size = 4 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 500
+  }]; // 0 = 100.
+}
+
+message ListRunLinesResponse {
+  common.v1.BaseResponse base = 1;
+  repeated RunLine data = 2;
+  common.v1.PaginationResponse pagination = 3;
+}
+
+// ── Period ───────────────────────────────────────────────────────────────────
+
+message ListPeriodsRequest {
+  string division = 1 [(buf.validate.field).string.max_len = 30]; // Empty = all in scope.
+}
+
+message ListPeriodsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Period data = 2;
+}
+
+message ApprovePeriodRequest {
+  int32 yymm = 1 [(buf.validate.field).int32 = {
+    gte: 190001
+    lte: 999912
+  }];
+  string division = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 30
+  }];
+}
+
+message ApprovePeriodResponse {
+  common.v1.BaseResponse base = 1;
+  Period data = 2;
+}
+
+message ClosePeriodRequest {
+  int32 yymm = 1 [(buf.validate.field).int32 = {
+    gte: 190001
+    lte: 999912
+  }];
+  string division = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 30
+  }];
+}
+
+message ClosePeriodResponse {
+  common.v1.BaseResponse base = 1;
+  Period data = 2;
+}
+
+message ReopenPeriodRequest {
+  int32 yymm = 1 [(buf.validate.field).int32 = {
+    gte: 190001
+    lte: 999912
+  }];
+  string division = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 30
+  }];
+  // Mandatory, at least 10 characters (spec 07§5).
+  string reason = 3 [(buf.validate.field).string = {
+    min_len: 10
+    max_len: 1000
+  }];
+}
+
+message ReopenPeriodResponse {
+  common.v1.BaseResponse base = 1;
+  Period data = 2;
+}
