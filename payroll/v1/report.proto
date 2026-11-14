@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package payroll.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+
+// =============================================================================
+// Payroll report export (spec 07§6, T030d, D-67 butir 1, D-62 butir 3/7).
+//
+// ExportReport returns the same workbook as `cmd/report reco|bank` (same code
+// path, same bytes for the same input) and writes one REPORT_EXPORT row to
+// pyr_audit_log per export. Needs payroll.report.data.view AND
+// payroll.salary.amount.view: the workbooks hold nominals and bank accounts, so
+// there is no masked variant (I23).
+// =============================================================================
+
+// ReportKind selects the workbook.
+enum ReportKind {
+  REPORT_KIND_UNSPECIFIED = 0;
+  // Reconciliation workbook (F-2): detail, transfer, upload, additional, reg,
+  // OT payroll. Also available for a period that is not yet APPROVED.
+  REPORT_KIND_RECO = 1;
+  // Bank transfer file (F-1, Mandiri): cover letter + DETAIL. Only for an
+  // APPROVED or CLOSED period; employees failing the pre-check are left out.
+  REPORT_KIND_BANK = 2;
+}
+
+// ExportReportRequest selects the ACTIVE run of the period to export.
+message ExportReportRequest {
+  int32 yymm = 1 [(buf.validate.field).int32 = {
+    gte: 190001
+    lte: 999912
+  }];
+  string division = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 30
+  }];
+  ReportKind kind = 3 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
+  // Transfer date YYYY-MM-DD (cover letter of the bank file). Required for BANK,
+  // ignored for RECO.
+  string transfer_date = 4 [(buf.validate.field).string.pattern = "^(|\\d{4}-\\d{2}-\\d{2})$"];
+}
+
+// ExportReportResponse contains the xlsx file.
+message ExportReportResponse {
+  common.v1.BaseResponse base = 1;
+  // Excel file content as bytes.
+  bytes file_content = 2;
+  // Suggested filename, e.g. bank_SOLO_202701.xlsx.
+  string file_name = 3;
+  // Rows written (the figure recorded in the audit row).
+  int32 row_count = 4;
+  // BANK: employees left out by the pre-check (the CLI lists them in a separate
+  // workbook). RECO: components without a GL setup.
+  int32 skipped_count = 5;
+}
