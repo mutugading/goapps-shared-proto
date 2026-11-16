@@ -106,7 +106,7 @@ message CreateRunRequest {
     min_len: 1
     max_len: 30
   }];
-  int32 company_id = 3 [(buf.validate.field).int32.gt = 0];
+  int32 company_id = 3 [(buf.validate.field).int32.gte = 0]; // 0 = derived from the caller scope (dry only, D-71)
   string process_date = 4 [(buf.validate.field).string.pattern = "^\\d{4}-\\d{2}-\\d{2}$"]; // YYYY-MM-DD
   RunMode mode = 5 [(buf.validate.field).enum = {
     defined_only: true
