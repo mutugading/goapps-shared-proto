@@ -1,0 +1,251 @@
+syntax = "proto3";
+
+package payroll.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+
+// =============================================================================
+// Payroll component master (T008, 12§2, 04§15): components keyed by sysid and
+// the per-level component template. Attachment to employees and level-change
+// belong to T008b.
+//
+// Components are never deleted; an unused one is retired (status RETIRED) and
+// its sysid stays referenced by history. Concurrency follows 07 Konvensi umum:
+// every component carries `etag`, updates send it as `if_match` (D-16).
+// Amounts/rates are decimal strings. yymm values are integers, e.g. 202610.
+// =============================================================================
+
+message Component {
+  int64 sysid = 1;
+  int32 company_id = 2;
+  string code = 3; // Unique per company, e.g. "T001", "P032".
+  string type = 4; // "T" (tunjangan) or "P" (potongan).
+  string name = 5;
+  repeated string scope_divisions = 6; // Empty = all divisions of the company.
+  string currency = 7; // Empty = follows the employee's pay currency.
+  string default_sts = 8; // "F" fixed or "D" daily.
+  string tax_class = 9; // NONE|TAXABLE|TAX_PAID_COMPANY|NON_TAXABLE_BENEFIT.
+  bool subsidy_eligible = 10;
+  string fix_income = 11; // Y|A|H|N or empty.
+  bool include_in_estimate = 12;
+  repeated string tags = 13; // e.g. "bpjs_base".
+  int32 serial = 14; // Payslip order, 0 = unset.
+  int64 base_component_sysid = 15; // 0 = none.
+  string status = 16; // DRAFT|ACTIVE|RETIRED.
+  int32 valid_from = 17;
+  int32 valid_to = 18; // 0 = open-ended.
+  string etag = 19;
+}
+
+// ComponentInput carries the writable fields shared by create and update.
+// `company_id`, `code` and `type` are fixed at creation.
+message ComponentInput {
+  string name = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 100
+  }];
+  repeated string scope_divisions = 2 [(buf.validate.field).repeated = {
+    unique: true
+    max_items: 20
+    items: {
+      string: {
+        min_len: 1
+        max_len: 30
+        pattern: "^[A-Za-z0-9_-]+$"
+      }
+    }
+  }];
+  string currency = 3 [(buf.validate.field).string.max_len = 3];
+  string default_sts = 4 [(buf.validate.field).string = {
+    in: [
+      "F",
+      "D"
+    ]
+  }];
+  string tax_class = 5 [(buf.validate.field).string = {
+    in: [
+      "NONE",
+      "TAXABLE",
+      "TAX_PAID_COMPANY",
+      "NON_TAXABLE_BENEFIT"
+    ]
+  }];
+  bool subsidy_eligible = 6;
+  string fix_income = 7 [(buf.validate.field).string = {
+    in: [
+      "",
+      "Y",
+      "A",
+      "H",
+      "N"
+    ]
+  }];
+  bool include_in_estimate = 8;
+  repeated string tags = 9 [(buf.validate.field).repeated = {
+    unique: true
+    max_items: 20
+    items: {
+      string: {
+        min_len: 1
+        max_len: 30
+        pattern: "^[a-z0-9_]+$"
+      }
+    }
+  }];
+  int32 serial = 10 [(buf.validate.field).int32.gte = 0];
+  int64 base_component_sysid = 11 [(buf.validate.field).int64.gte = 0];
+  int32 valid_from = 12 [(buf.validate.field).int32 = {
+    gte: 200001
+    lte: 209912
+  }];
+  int32 valid_to = 13 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 209912
+  }]; // 0 = open-ended.
+}
+
+message CreateComponentRequest {
+  int32 company_id = 1 [(buf.validate.field).int32 = {
+    gt: 0
+    lte: 32767
+  }];
+  string code = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 20
+    pattern: "^[A-Z0-9_]+$"
+  }];
+  string type = 3 [(buf.validate.field).string = {
+    in: [
+      "T",
+      "P"
+    ]
+  }];
+  ComponentInput input = 4 [(buf.validate.field).required = true];
+}
+
+message CreateComponentResponse {
+  common.v1.BaseResponse base = 1;
+  Component data = 2;
+}
+
+message GetComponentRequest {
+  int64 sysid = 1 [(buf.validate.field).int64.gt = 0];
+}
+
+message GetComponentResponse {
+  common.v1.BaseResponse base = 1;
+  Component data = 2;
+}
+
+message ListComponentsRequest {
+  int32 company_id = 1 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 32767
+  }]; // 0 = all companies in scope.
+  string type = 2 [(buf.validate.field).string = {
+    in: [
+      "",
+      "T",
+      "P"
+    ]
+  }];
+  string status = 3 [(buf.validate.field).string = {
+    in: [
+      "",
+      "DRAFT",
+      "ACTIVE",
+      "RETIRED"
+    ]
+  }];
+  string q = 4 [(buf.validate.field).string.max_len = 100]; // Code or name.
+  int32 limit = 5 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 200
+  }]; // 0 = 50.
+  string cursor = 6 [(buf.validate.field).string.max_len = 100];
+}
+
+message ListComponentsResponse {
+  common.v1.BaseResponse base = 1;
+  repeated Component data = 2;
+  string next_cursor = 3; // Empty = last page.
+}
+
+message UpdateComponentRequest {
+  int64 sysid = 1 [(buf.validate.field).int64.gt = 0];
+  ComponentInput input = 2 [(buf.validate.field).required = true];
+  string if_match = 3 [(buf.validate.field).string.min_len = 1];
+}
+
+message UpdateComponentResponse {
+  common.v1.BaseResponse base = 1;
+  Component data = 2;
+}
+
+message RetireComponentRequest {
+  int64 sysid = 1 [(buf.validate.field).int64.gt = 0];
+  string if_match = 2 [(buf.validate.field).string.min_len = 1];
+}
+
+message RetireComponentResponse {
+  common.v1.BaseResponse base = 1;
+  Component data = 2;
+}
+
+// ── Template per level ───────────────────────────────────────────────────────
+
+// TemplateItem is one component a level receives on create / level-change.
+message TemplateItem {
+  int64 component_sysid = 1 [(buf.validate.field).int64.gt = 0];
+  string sts = 2 [(buf.validate.field).string = {
+    in: [
+      "",
+      "F",
+      "D"
+    ]
+  }]; // Empty = component default_sts.
+  int32 tax = 3 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 9
+  }];
+  string amount = 4; // Decimal rate or amount; empty = 0. Validated in the application layer.
+  string tax_paid_company = 5 [(buf.validate.field).string = {
+    in: [
+      "",
+      "Y",
+      "N"
+    ]
+  }];
+  // Read-only echo of the component for display.
+  string component_code = 6;
+  string component_name = 7;
+}
+
+message GetComponentTemplateRequest {
+  string level = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+}
+
+message GetComponentTemplateResponse {
+  common.v1.BaseResponse base = 1;
+  string level = 2;
+  repeated TemplateItem items = 3;
+}
+
+// PutComponentTemplateRequest replaces the whole template of a level.
+message PutComponentTemplateRequest {
+  string level = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+  }];
+  repeated TemplateItem items = 2 [(buf.validate.field).repeated = {max_items: 200}];
+}
+
+message PutComponentTemplateResponse {
+  common.v1.BaseResponse base = 1;
+  string level = 2;
+  repeated TemplateItem items = 3;
+}

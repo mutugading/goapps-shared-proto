@@ -1,0 +1,154 @@
+syntax = "proto3";
+
+package payroll.v1;
+
+import "buf/validate/validate.proto";
+import "common/v1/common.proto";
+import "payroll/v1/master.proto";
+
+// =============================================================================
+// Employee component attachment and level-change (T008b, 12§2.2, 02§5.1, 07§1).
+//
+// Eligibility = attachment: only components attached to an employee (frz_flag 2,
+// valid period) are calculated. `source` TEMPLATE rows come from the level
+// template and are managed by level-change; MANUAL rows are never removed or
+// changed automatically (12§2.2 rule 4). `{nik}` accepts old or new NIK (13§3.1).
+// =============================================================================
+
+message EmployeeComponent {
+  int64 component_sysid = 1;
+  string component_code = 2;
+  string component_name = 3;
+  string sts = 4; // "F" fixed or "D" daily.
+  int32 tax = 5;
+  string amount = 6; // Decimal string, up to 6 decimals.
+  string tax_paid_company = 7; // "Y", "N" or empty.
+  int32 frz_flag = 8; // 2 = active, 1 = frozen.
+  string source = 9; // TEMPLATE or MANUAL.
+  int32 valid_from = 10; // yymm, 0 = open.
+  int32 valid_to = 11; // yymm, 0 = open.
+}
+
+message EmployeeComponentInput {
+  int64 component_sysid = 1 [(buf.validate.field).int64.gt = 0];
+  string sts = 2 [(buf.validate.field).string = {
+    in: [
+      "",
+      "F",
+      "D"
+    ]
+  }]; // Empty = component default_sts.
+  int32 tax = 3 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 9
+  }];
+  string amount = 4; // Validated in the application layer (decimal, max 6 decimals).
+  string tax_paid_company = 5 [(buf.validate.field).string = {
+    in: [
+      "",
+      "Y",
+      "N"
+    ]
+  }];
+  int32 frz_flag = 6 [(buf.validate.field).int32 = {
+    gte: 0
+    lte: 2
+  }]; // 0 = default 2 (active).
+  int32 valid_from = 7 [(buf.validate.field).int32.gte = 0];
+  int32 valid_to = 8 [(buf.validate.field).int32.gte = 0];
+}
+
+message GetEmployeeComponentsRequest {
+  string nik = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 15
+  }];
+  int32 company_id = 2; // 0 = any company in scope.
+  string division = 3; // Empty = any division in scope.
+}
+
+message GetEmployeeComponentsResponse {
+  common.v1.BaseResponse base = 1;
+  int64 employee_id = 2;
+  repeated EmployeeComponent items = 3;
+}
+
+// PutEmployeeComponentsRequest replaces the attachment set of one employee.
+// Listed components that are not attached yet become MANUAL; attached ones keep
+// their source. Components that are not listed are detached.
+message PutEmployeeComponentsRequest {
+  string nik = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 15
+  }];
+  int32 company_id = 2;
+  string division = 3;
+  repeated EmployeeComponentInput items = 4 [(buf.validate.field).repeated = {max_items: 500}];
+}
+
+message PutEmployeeComponentsResponse {
+  common.v1.BaseResponse base = 1;
+  int64 employee_id = 2;
+  repeated EmployeeComponent items = 3;
+}
+
+// ComponentChange is one line of a level-change diff.
+message ComponentChange {
+  string action = 1; // ADD, REMOVE or CHANGE.
+  int64 component_sysid = 2;
+  string component_code = 3;
+  string component_name = 4;
+  EmployeeComponent before = 5; // Unset for ADD.
+  EmployeeComponent after = 6; // Unset for REMOVE.
+}
+
+message PreviewLevelChangeRequest {
+  string nik = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 15
+  }];
+  int32 company_id = 2;
+  string division = 3;
+  string new_level = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 50
+  }];
+  int32 effective_yymm = 5 [(buf.validate.field).int32 = {
+    gte: 200001
+    lte: 209912
+  }];
+}
+
+message PreviewLevelChangeResponse {
+  common.v1.BaseResponse base = 1;
+  string current_level = 2;
+  string new_level = 3;
+  repeated ComponentChange changes = 4;
+  // Template components the employee already holds as MANUAL; left untouched.
+  repeated string skipped_manual = 5;
+}
+
+message ApplyLevelChangeRequest {
+  string nik = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 15
+  }];
+  int32 company_id = 2;
+  string division = 3;
+  string new_level = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 50
+  }];
+  int32 effective_yymm = 5 [(buf.validate.field).int32 = {
+    gte: 200001
+    lte: 209912
+  }];
+  string if_match = 6 [(buf.validate.field).string.min_len = 1]; // Employee etag.
+}
+
+message ApplyLevelChangeResponse {
+  common.v1.BaseResponse base = 1;
+  Employee data = 2;
+  repeated ComponentChange changes = 3;
+  repeated string skipped_manual = 4;
+}
