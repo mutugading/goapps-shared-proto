@@ -44,12 +44,12 @@ message Machine {
   int32 no_of_position = 6;
   // Number of ends per position.
   int32 no_of_end = 7;
-  // Machine speed in m/min.
-  double mc_speed = 8;
+  // Deprecated (2026-11): speed/efficiency are per-product params (MC_SPEED / MC_EFFICIENCY), no longer stored via the machine master. Ignored by the server.
+  double mc_speed = 8 [deprecated = true];
   // Optional machine RPM.
   optional double machine_rpm = 9;
-  // Machine efficiency as a percentage (default 95).
-  double mc_efficiency = 10;
+  // Deprecated (2026-11): speed/efficiency are per-product params (MC_SPEED / MC_EFFICIENCY), no longer stored via the machine master. Ignored by the server.
+  double mc_efficiency = 10 [deprecated = true];
   // Optional power cost per day in USD.
   optional double power_per_day = 11;
   // Whether the record is active.
@@ -110,15 +110,21 @@ message CreateMachineRequest {
   int32 no_of_position = 5 [(buf.validate.field).int32.gte = 0];
   // Number of ends per position (≥ 1).
   int32 no_of_end = 6 [(buf.validate.field).int32.gte = 1];
-  // Machine speed in m/min (≥ 0).
-  double mc_speed = 7 [(buf.validate.field).double.gte = 0];
+  // Deprecated (2026-11): speed/efficiency are per-product params (MC_SPEED / MC_EFFICIENCY), no longer stored via the machine master. Ignored by the server.
+  double mc_speed = 7 [
+    (buf.validate.field).double.gte = 0,
+    deprecated = true
+  ];
   // Optional machine RPM.
   optional double machine_rpm = 8;
-  // Machine efficiency percentage (0-100).
-  double mc_efficiency = 9 [(buf.validate.field).double = {
-    gte: 0
-    lte: 100
-  }];
+  // Deprecated (2026-11): speed/efficiency are per-product params (MC_SPEED / MC_EFFICIENCY), no longer stored via the machine master. Ignored by the server.
+  double mc_efficiency = 9 [
+    (buf.validate.field).double = {
+      gte: 0
+      lte: 100
+    },
+    deprecated = true
+  ];
   // Optional power cost per day in USD.
   optional double power_per_day = 10;
   // Optional notes (max 1000 chars).
@@ -194,15 +200,21 @@ message UpdateMachineRequest {
   optional int32 no_of_position = 5 [(buf.validate.field).int32.gte = 0];
   // Updated number of ends per position.
   optional int32 no_of_end = 6 [(buf.validate.field).int32.gte = 1];
-  // Updated machine speed.
-  optional double mc_speed = 7 [(buf.validate.field).double.gte = 0];
+  // Deprecated (2026-11): speed/efficiency are per-product params (MC_SPEED / MC_EFFICIENCY), no longer stored via the machine master. Ignored by the server.
+  optional double mc_speed = 7 [
+    (buf.validate.field).double.gte = 0,
+    deprecated = true
+  ];
   // Updated machine RPM.
   optional double machine_rpm = 8;
-  // Updated machine efficiency percentage.
-  optional double mc_efficiency = 9 [(buf.validate.field).double = {
-    gte: 0
-    lte: 100
-  }];
+  // Deprecated (2026-11): speed/efficiency are per-product params (MC_SPEED / MC_EFFICIENCY), no longer stored via the machine master. Ignored by the server.
+  optional double mc_efficiency = 9 [
+    (buf.validate.field).double = {
+      gte: 0
+      lte: 100
+    },
+    deprecated = true
+  ];
   // Updated power cost per day.
   optional double power_per_day = 10;
   // Updated notes (max 1000 chars).
@@ -2531,7 +2543,7 @@ message GetLookupFillValuesRequest {
 // GetLookupFillValuesResponse returns numeric and text fills to auto-populate CAPP params.
 message GetLookupFillValuesResponse {
   common.v1.BaseResponse base = 1;
-  // param_code → numeric value to fill (e.g., {"MC_SPEED": 800.0, "MC_EFFICIENCY": 92.0}).
+  // param_code → numeric value to fill (e.g., {"NO_OF_POSITION": 504.0, "NO_OF_END": 2.0}).
   map<string, double> numeric_fills = 2;
   // param_code → text value to fill (e.g., {"MB_DYE_NAME": "CIBA RED"}).
   map<string, string> text_fills = 3;
