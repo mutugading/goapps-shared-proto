@@ -114,6 +114,10 @@ message RequiredParamEntry {
   // the UI (e.g. Superba colour name for MB_SP_DYE on SUPERBA products). Empty =
   // none. Never stored; the stored value stays editable.
   string display_value = 32;
+  // Machine-specific initial value for a CALCULATED param (mst_machine_param_default), as a
+  // decimal string. Non-empty = the product's machine (MC_NAME) overrides the formula: the
+  // stored product value is used (editable), falling back to this default. Empty = normal.
+  string machine_default_value = 33;
 }
 
 // =============================================================================
