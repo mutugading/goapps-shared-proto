@@ -376,3 +376,24 @@ message CorrectEmployeeTaxStatusResponse {
   common.v1.BaseResponse base = 1;
   Employee data = 2;
 }
+
+// ListEmployeeTaxHistory reads the tax-status history of one employee (D-82 (1)), newest first. The caller must
+// hold payroll.master.employee.view and the employee must lie in scope (else NOT_FOUND).
+message ListEmployeeTaxHistoryRequest {
+  int64 id = 1 [(buf.validate.field).int64.gt = 0];
+}
+
+// EmployeeTaxHistory is one history row: `tax_id` is valid from `valid_from` until the next row.
+message EmployeeTaxHistory {
+  string valid_from = 1; // YYYY-MM-DD (WIB calendar).
+  string tax_id = 2;
+  string source = 3; // BACKFILL | INSERT | UPDATE | CORRECT.
+  string reason = 4; // Only CORRECT rows carry a reason.
+  string created_by = 5;
+  string created_at = 6; // RFC 3339, UTC.
+}
+
+message ListEmployeeTaxHistoryResponse {
+  common.v1.BaseResponse base = 1;
+  repeated EmployeeTaxHistory data = 2;
+}

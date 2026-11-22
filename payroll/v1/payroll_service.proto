@@ -99,6 +99,11 @@ service PayrollService {
     };
   }
 
+  // Tax-status history of one employee (D-82 (1), T033n4), newest first; read-only.
+  rpc ListEmployeeTaxHistory(ListEmployeeTaxHistoryRequest) returns (ListEmployeeTaxHistoryResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/employees/id/{id}/tax-history"};
+  }
+
   // ── Master: Component (sysid) + template per level (T008) ──────────────────
   rpc CreateComponent(CreateComponentRequest) returns (CreateComponentResponse) {
     option (google.api.http) = {
