@@ -353,3 +353,26 @@ message UpdateEmployeeResponse {
   common.v1.BaseResponse base = 1;
   Employee data = 2;
 }
+
+// CorrectEmployeeTaxStatus fixes a wrong `tax_id` as if it had been entered on `valid_from` (D-82 (5)): history
+// rows from that date on are replaced, earlier rows stay. `valid_from` must lie in the current or previous tax
+// year and not in the future (WIB); a tax year whose December (or a leaver's last) period is APPROVED/CLOSED
+// is rejected with PERIOD_CLOSED. A genuine status change (marriage, child) goes through UpdateEmployee.
+message CorrectEmployeeTaxStatusRequest {
+  int64 id = 1 [(buf.validate.field).int64.gt = 0];
+  string tax_id = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 10
+  }];
+  string valid_from = 3 [(buf.validate.field).string.len = 10]; // YYYY-MM-DD
+  string reason = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 500
+  }];
+  string if_match = 5 [(buf.validate.field).string.min_len = 1];
+}
+
+message CorrectEmployeeTaxStatusResponse {
+  common.v1.BaseResponse base = 1;
+  Employee data = 2;
+}

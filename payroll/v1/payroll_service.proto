@@ -90,6 +90,14 @@ service PayrollService {
       body: "*"
     };
   }
+  // Backdated correction of a wrongly entered tax status (D-82 (5), T033n2): the status is recorded as valid
+  // from `valid_from` in the tax-status history, so the annual PTKP uses it. Needs payroll.master.taxstatus.update.
+  rpc CorrectEmployeeTaxStatus(CorrectEmployeeTaxStatusRequest) returns (CorrectEmployeeTaxStatusResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/payroll/employees/id/{id}/tax-status-correction"
+      body: "*"
+    };
+  }
 
   // ── Master: Component (sysid) + template per level (T008) ──────────────────
   rpc CreateComponent(CreateComponentRequest) returns (CreateComponentResponse) {
