@@ -6,6 +6,7 @@ import "google/api/annotations.proto";
 import "payroll/v1/component.proto";
 import "payroll/v1/employee_component.proto";
 import "payroll/v1/master.proto";
+import "payroll/v1/report.proto";
 import "payroll/v1/run.proto";
 
 // =============================================================================
@@ -178,6 +179,10 @@ service PayrollService {
   rpc ListRunLines(ListRunLinesRequest) returns (ListRunLinesResponse) {
     option (google.api.http) = {get: "/api/v1/payroll/runs/{run_id}/lines"};
   }
+  // Diff of a run against the ACTIVE run, another run of the period, or the LEGACY run (07§4, T030c, D-67).
+  rpc GetRunDiff(GetRunDiffRequest) returns (GetRunDiffResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/runs/{run_id}/diff"};
+  }
   rpc ListPeriods(ListPeriodsRequest) returns (ListPeriodsResponse) {
     option (google.api.http) = {get: "/api/v1/payroll/periods"};
   }
@@ -198,5 +203,9 @@ service PayrollService {
       post: "/api/v1/payroll/periods/{yymm}/{division}:reopen"
       body: "*"
     };
+  }
+  // ExportReport returns the reco or bank xlsx of a period, audited (07§6, T030d, D-67).
+  rpc ExportReport(ExportReportRequest) returns (ExportReportResponse) {
+    option (google.api.http) = {get: "/api/v1/payroll/reports/export"};
   }
 }
