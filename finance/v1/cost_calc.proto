@@ -903,6 +903,79 @@ message ApproveCostResultResponse {
   CostResult result = 2;
 }
 
+// CostResultBulkSelection picks the rows of a bulk verify / approve. When
+// cost_ids is non-empty only those rows are processed and the filter fields
+// are ignored; otherwise the filter (period required) selects every active
+// row in the transition's source status (CALCULATED for verify, VERIFIED for
+// approve), capped server-side at 2000 rows.
+message CostResultBulkSelection {
+  // Explicit cost ids (max 2000). Non-empty = id mode.
+  repeated int64 cost_ids = 1 [(buf.validate.field).repeated = {
+    max_items: 2000
+    items: {
+      int64: {gt: 0}
+    }
+  }];
+  // Filter mode: period YYYYMM (required when cost_ids is empty).
+  string period = 2 [(buf.validate.field).string = {pattern: "^$|^[0-9]{6}$"}];
+  // Filter mode: calculation type (UNSPECIFIED = all types).
+  CalculationType calculation_type = 3;
+  // Filter mode: product code/name search.
+  string search = 4 [(buf.validate.field).string.max_len = 100];
+  // Filter mode: product type ids.
+  repeated int32 product_type_ids = 5 [(buf.validate.field).repeated.max_items = 200];
+  // Filter mode: shade codes.
+  repeated string shade_codes = 6 [(buf.validate.field).repeated.max_items = 200];
+  // Filter mode: RM group codes.
+  repeated string rm_group_codes = 7 [(buf.validate.field).repeated.max_items = 200];
+}
+
+// CostResultBulkFailure is one row a bulk transition could not apply.
+message CostResultBulkFailure {
+  // Cost id of the failed row.
+  int64 cost_id = 1;
+  // Product code (empty when the row could not be resolved).
+  string product_code = 2;
+  // Human-readable reason (e.g. wrong status, locked period, MB row).
+  string reason = 3;
+}
+
+// BulkVerifyCostResultsRequest verifies many CALCULATED results at once.
+message BulkVerifyCostResultsRequest {
+  // Rows to verify.
+  CostResultBulkSelection selection = 1 [(buf.validate.field).required = true];
+}
+
+// BulkVerifyCostResultsResponse summarizes a bulk verify.
+message BulkVerifyCostResultsResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Rows verified.
+  int32 ok_count = 2;
+  // Rows refused.
+  int32 failed_count = 3;
+  // Per-row refusals.
+  repeated CostResultBulkFailure failures = 4;
+}
+
+// BulkApproveCostResultsRequest approves many VERIFIED results at once.
+message BulkApproveCostResultsRequest {
+  // Rows to approve.
+  CostResultBulkSelection selection = 1 [(buf.validate.field).required = true];
+}
+
+// BulkApproveCostResultsResponse summarizes a bulk approve.
+message BulkApproveCostResultsResponse {
+  // Standard response envelope.
+  common.v1.BaseResponse base = 1;
+  // Rows approved.
+  int32 ok_count = 2;
+  // Rows refused.
+  int32 failed_count = 3;
+  // Per-row refusals.
+  repeated CostResultBulkFailure failures = 4;
+}
+
 // ProcessChunkInternalRequest carries the data the worker needs to compute
 // one chunk of products. Internal RPC: only finance-cost-worker invokes it.
 message ProcessChunkInternalRequest {
@@ -1096,6 +1169,24 @@ service CostCalcService {
   rpc ApproveCostResult(ApproveCostResultRequest) returns (ApproveCostResultResponse) {
     option (google.api.http) = {
       post: "/api/v1/finance/cost-results/{cost_id}/approve"
+      body: "*"
+    };
+  }
+  // BulkVerifyCostResults verifies many CALCULATED results; each row runs the
+  // single-row rules in its own transaction, failures don't abort the rest.
+  // Required permission: finance.cost.result.verify.
+  rpc BulkVerifyCostResults(BulkVerifyCostResultsRequest) returns (BulkVerifyCostResultsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-results/bulk-verify"
+      body: "*"
+    };
+  }
+  // BulkApproveCostResults approves many VERIFIED results; same semantics as
+  // BulkVerifyCostResults.
+  // Required permission: finance.cost.result.approve.
+  rpc BulkApproveCostResults(BulkApproveCostResultsRequest) returns (BulkApproveCostResultsResponse) {
+    option (google.api.http) = {
+      post: "/api/v1/finance/cost-results/bulk-approve"
       body: "*"
     };
   }
