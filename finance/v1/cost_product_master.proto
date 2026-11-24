@@ -46,6 +46,8 @@ message CostProductMaster {
   string rm_ratio_mode_override = 28;
   // COALESCE(product override, product type mode); read-only.
   string effective_rm_ratio_mode = 29;
+  // Fixed-cost floor per kg (migration 000615): unset = auto (machine default), 0 = off, > 0 = floor.
+  optional double fixcost_min_threshold = 30;
 }
 
 // =============================================================================
@@ -137,6 +139,11 @@ message UpdateCostProductMasterRequest {
       "INPUT",
       "DENIER"
     ]
+  }];
+  // Fixed-cost floor per kg. Absent = unchanged; 0 = floor off; no reset-to-auto path.
+  optional double fixcost_min_threshold = 15 [(buf.validate.field).double = {
+    gte: 0
+    lte: 1
   }];
 }
 
