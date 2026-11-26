@@ -1575,6 +1575,24 @@ message ListMBHeadsRequest {
   // has no column pointing back to MB. NOTE: this column is only populated when a head reaches
   // VALIDATED (mb_autogen_repository.go), so a still-DRAFT head will not be found by this filter.
   int64 cost_product_id = 7;
+  // Filter by entry status (mbh_entry_status). Empty = no filter (backward compatible).
+  // Multiple values are OR-ed. Allowed: DRAFT, SUBMITTED, APPROVED, VALIDATED, UN_APPROVED, REVOKED, REJECTED.
+  repeated string entry_statuses = 8 [(buf.validate.field).repeated = {
+    max_items: 7
+    items: {
+      string: {
+        in: [
+          "DRAFT",
+          "SUBMITTED",
+          "APPROVED",
+          "VALIDATED",
+          "UN_APPROVED",
+          "REVOKED",
+          "REJECTED"
+        ]
+      }
+    }
+  }];
 }
 
 // ListMBHeadsResponse is the response for listing MB Head records.
