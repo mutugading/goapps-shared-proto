@@ -2473,6 +2473,11 @@ message DuplicateMBSpinRequest {
   optional int32 mbs_filament = 5 [(buf.validate.field).int32.gt = 0];
   // FG product link for the clone (cost_product_master id). 0 = no FG link (the source FG is never copied; it would collide on shade+FG).
   int64 fg_product_id = 6 [(buf.validate.field).int64.gte = 0];
+  // Optional LDR for the clone, strictly greater than zero. When set the clone
+  // gets run_ldr = ldr_calculated = this value, adjustment NULL and the LDR is
+  // locked as actual (immune to the parent's LDR cascade). Absent means the
+  // source LDR values are copied as before.
+  optional double mbs_run_ldr_pct = 7 [(buf.validate.field).double.gt = 0];
 }
 
 // MBSpinRecalcSkipped is one child spin that the duplicate/recalc pass did NOT
