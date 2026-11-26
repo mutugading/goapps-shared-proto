@@ -2163,6 +2163,9 @@ message MBSpin {
   // True when the FG link follows the recipe and cannot be edited on the spin
   // (link source RECIPE, or root spin of a recipe that has an FG). Read-only.
   bool fg_follows_recipe = 36;
+  // UUID of the spin this one was duplicated from (empty = root spin). Child
+  // spins (non-empty) cannot be duplicated again.
+  string parent_spin_id = 37;
 }
 
 // CreateMBSpinRequest is the request for creating an MB Spin record.
